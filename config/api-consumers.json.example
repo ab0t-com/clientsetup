@@ -1,0 +1,38 @@
+{
+    "$schema": "https://auth.service.ab0t.com/schemas/api-consumers/v1",
+    "consumer_org": {
+        "name_suffix": "API Consumers",
+        "slug_suffix": "api-consumers",
+        "description": "Self-service consumer registration for mesh services"
+    },
+    "tiers": [
+        {
+            "name": "Read-Only Consumers",
+            "description": "Read-only access — dashboards, analytics, monitoring",
+            "default": true,
+            "permissions": [
+                "YOUR_SERVICE.read",
+                "YOUR_SERVICE.read.RESOURCE_1",
+                "YOUR_SERVICE.read.RESOURCE_2",
+                "YOUR_SERVICE.cross_tenant"
+            ]
+        },
+        {
+            "name": "Standard Consumers",
+            "description": "Read + safe write access — active integrations",
+            "default": false,
+            "permissions": [
+                "YOUR_SERVICE.read",
+                "YOUR_SERVICE.read.RESOURCE_1",
+                "YOUR_SERVICE.read.RESOURCE_2",
+                "YOUR_SERVICE.write.RESOURCE_1",
+                "YOUR_SERVICE.cross_tenant"
+            ]
+        }
+    ],
+    "registration": {
+        "signup_enabled": true,
+        "require_email_verification": false,
+        "default_role": "service_account"
+    }
+}

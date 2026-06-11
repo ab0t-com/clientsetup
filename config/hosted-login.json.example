@@ -1,0 +1,31 @@
+{
+  "branding": {
+    "primary_color": "#111111",
+    "background_color": "#FAFAFA",
+    "page_title": "My Service - Sign In",
+    "hide_powered_by": false,
+    "login_template": "default"
+  },
+  "content": {
+    "welcome_message": "Sign in to My Service",
+    "signup_message": "Create your account",
+    "footer_message": "My Service by Example Inc"
+  },
+  "auth_methods": {
+    "email_password": true,
+    "signup_enabled": true,
+    "invitation_only": false
+  },
+  "registration": {
+    "default_role": "end_user",
+    "require_email_verification": false,
+    "collect_name": true
+  },
+  "security": {
+    "post_logout_redirect_uri": "https://my-service.example.com",
+    "remember_me_enabled": true,
+    "accept_invite_url": "https://my-service.example.com/welcome",
+    "accept_invite_error_url": "https://my-service.example.com/invite-error",
+    "accept_invite_allowed_origins": []
+  }
+}

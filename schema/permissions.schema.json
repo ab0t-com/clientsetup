@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auth.service.ab0t.com/schemas/permissions/v2",
+  "title": "Service Permissions Schema",
+  "description": "Defines a service's permission surface: actions, resources, permission IDs, roles, and default grants. Used by 01-register-service-permissions.sh to register the service with the Auth Mesh.",
+  "type": "object",
+  "required": ["service", "registration", "permissions", "roles"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema reference"
+    },
+    "service": {
+      "type": "object",
+      "description": "Service identity metadata",
+      "required": ["id", "name", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Unique service identifier. Used as org slug and permission prefix. Lowercase alphanumeric with hyphens.",
+          "examples": ["integration", "billing", "resource"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable service name",
+          "examples": ["Integration Service"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this service does"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semver version of the permission schema"
+        },
+        "audience": {
+          "type": "string",
+          "description": "Token audience identifier. Used in JWT aud claim for service-to-service auth.",
+          "examples": ["integration-service"]
+        },
+        "maintainer": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email for the service owner"
+        }
+      },
+      "additionalProperties": false
+    },
+    "registration": {
+      "type": "object",
+      "description": "Permission registration config sent to POST /permissions/registry/register",
+      "required": ["service", "actions", "resources"],
+      "properties": {
+        "service": {
+          "type": "string",
+          "description": "Service name for the registry. Usually matches service.id."
+        },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z_]+$" },
+          "minItems": 1,
+          "description": "Available actions (read, write, create, delete, execute, admin, etc.)",
+          "examples": [["read", "write", "create", "delete", "execute", "admin"]]
+        },
+        "resources": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z_]+$" },
+          "minItems": 1,
+          "description": "Available resources (services, connections, tools, etc.)",
+          "examples": [["services", "connections", "proxy", "tools"]]
+        }
+      },
+      "additionalProperties": false
+    },
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "description": "All permission IDs this service defines",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "default_grant"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]*\\.[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+            "description": "Permission ID in {service}.{action}.{resource} or {service}.{action} format",
+            "examples": ["integration.read.services", "integration.admin"]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable permission name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What this permission allows"
+          },
+          "intent": {
+            "type": "string",
+            "description": "Why a user would need this permission"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"],
+            "description": "Risk assessment for granting this permission"
+          },
+          "cost_impact": {
+            "type": "boolean",
+            "description": "Whether this permission can trigger billable operations"
+          },
+          "default_grant": {
+            "type": "boolean",
+            "description": "Whether this permission is granted to all new users by default"
+          },
+          "security_notes": {
+            "type": "string",
+            "description": "Security considerations for this permission"
+          },
+          "implies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Permission IDs this permission implies (admin permissions typically imply all others)"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Pre-defined role bundles mapping to permission sets",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "permissions"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Role identifier",
+            "examples": ["integration-user", "integration-admin"]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Permission IDs this role grants"
+          },
+          "default": {
+            "type": "boolean",
+            "description": "Whether this is the default role for new users. Exactly one role should be default."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "multi_tenancy": {
+      "type": "object",
+      "description": "Multi-tenancy isolation configuration",
+      "properties": {
+        "isolation_model": {
+          "type": "string",
+          "enum": ["organization", "team", "user"],
+          "description": "How tenant isolation is enforced"
+        },
+        "tenant_field": {
+          "type": "string",
+          "description": "Field name used for tenant scoping (usually org_id)"
+        },
+        "enforcement": {
+          "type": "string",
+          "enum": ["strict", "permissive"],
+          "description": "Whether cross-tenant access is structurally blocked or permission-gated"
+        },
+        "cross_tenant_permission": {
+          "type": "string",
+          "description": "Permission required for cross-tenant access"
+        },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "end_users": {
+      "type": "object",
+      "description": "Configuration for how end-users are provisioned",
+      "properties": {
+        "auto_provision": {
+          "type": "boolean",
+          "description": "Whether users are auto-provisioned on org join"
+        },
+        "default_role": {
+          "type": "string",
+          "description": "Role assigned to new end-users"
+        },
+        "default_team_name": {
+          "type": "string",
+          "description": "Name of the default team created for end-users (team-inherited model)"
+        },
+        "provision_on": {
+          "type": "string",
+          "enum": ["org_join", "first_login", "invite_accept"],
+          "description": "When user provisioning occurs"
+        },
+        "org_structure": {
+          "type": "object",
+          "description": "Predefined org hierarchy pattern to materialize when a user registers via hosted login. The auth service's event handler reads this at runtime and creates the configured structure. Leaving this block out (or setting pattern 'flat') means no extra orgs are created — users simply join the end-users org with the default team, which is the standard behavior.",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "enum": ["flat", "workspace-per-user"],
+              "default": "flat",
+              "description": "Which org structure to build on registration. Available patterns:\n\n• 'flat' — no extra orgs. Users join the end-users org and the default team only. This is the existing behavior and the safe default.\n\n• 'workspace-per-user' — each new user gets a private nested org (a 'workspace') under the end-users org, with themselves as owner and their own default team. Useful for services where each user needs a personal space: their own API keys, their own teammates, their own settings. Similar to GitHub user namespaces, Notion personal workspaces, or Vercel personal scopes."
+            },
+            "config": {
+              "type": "object",
+              "description": "Pattern-specific configuration. Fields below apply to 'workspace-per-user'. For 'flat' this block is ignored — you can omit it entirely.",
+              "properties": {
+                "slug_template": {
+                  "type": "string",
+                  "description": "Template for the workspace slug (the URL-friendly identifier). Variables: {email_prefix} — lowercased local part of the email (e.g. 'alice' from 'Alice@acme.com'), {short_id} — 6-char random hex suffix to prevent collisions between users with similar emails. Setup script 04 pre-substitutes {service_id} at config-write time so the runtime handler doesn't need to know your service id. Default: '{email_prefix}-{short_id}'.",
+                  "examples": [
+                    "{email_prefix}-{short_id}",
+                    "{service_id}-{email_prefix}-{short_id}"
+                  ]
+                },
+                "name_template": {
+                  "type": "string",
+                  "description": "Template for the workspace display name shown in UI / org listings. Variables: {email}, {email_prefix}. Default: \"{email_prefix}'s workspace\".",
+                  "examples": [
+                    "{email_prefix}'s workspace",
+                    "Workspace for {email}"
+                  ]
+                },
+                "default_team_name": {
+                  "type": "string",
+                  "description": "Display name for the team that holds default permissions inside each workspace. Default: 'Default'.",
+                  "examples": ["Default", "Workspace Users", "All Users"]
+                },
+                "default_team_permissions": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Permission IDs to grant to the workspace's default team. Usually left empty here — setup script 04 auto-populates this from your permissions[] array by selecting every permission where default_grant is true. Override only if the workspace team should carry a different permission set than your end-users team. Each ID must exist in your permissions[] array."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "api_key": {
+      "type": "object",
+      "description": "API key configuration for service-to-service auth",
+      "properties": {
+        "additional_permissions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Extra permissions needed on the API key beyond service permissions"
+        },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

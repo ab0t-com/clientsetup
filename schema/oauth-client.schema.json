@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auth.service.ab0t.com/schemas/oauth-client/v1",
+  "title": "OAuth Client Registration Config",
+  "description": "OAuth 2.1 client configuration for frontend applications. Sent to POST /auth/oauth/register by 02-register-oauth-client.sh. Follows RFC 7591 (Dynamic Client Registration).",
+  "type": "object",
+  "required": ["client_name", "redirect_uris"],
+  "properties": {
+    "client_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable name shown in consent screens and admin dashboards",
+      "examples": ["Integration Service Frontend", "My App"]
+    },
+    "redirect_uris": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "minItems": 1,
+      "description": "Allowed OAuth callback URLs. Must match exactly during authorization.",
+      "examples": [["https://app.example.com/auth/callback", "http://localhost:3000/auth/callback"]]
+    },
+    "grant_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["authorization_code", "refresh_token", "client_credentials"]
+      },
+      "description": "OAuth grant types this client supports",
+      "default": ["authorization_code", "refresh_token"]
+    },
+    "response_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["code", "token"]
+      },
+      "description": "OAuth response types",
+      "default": ["code"]
+    },
+    "token_endpoint_auth_method": {
+      "type": "string",
+      "enum": ["none", "client_secret_basic", "client_secret_post"],
+      "description": "How the client authenticates at the token endpoint. 'none' for public clients (SPA/mobile with PKCE).",
+      "default": "none"
+    },
+    "scope": {
+      "type": "string",
+      "description": "Space-separated list of requested OAuth scopes",
+      "default": "openid profile email",
+      "examples": ["openid profile email"]
+    }
+  },
+  "additionalProperties": false
+}

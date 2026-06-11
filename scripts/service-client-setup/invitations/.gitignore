@@ -1,0 +1,3 @@
+# Invitation files contain org IDs — keep out of public repo
+*.json
+!*.json.example

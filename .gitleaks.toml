@@ -1,0 +1,32 @@
+# Gitleaks configuration for client-service-setup-cli
+# https://github.com/gitleaks/gitleaks
+#
+# Policy: scan EVERY file (including .md docs and .json.example) with the full
+# default ruleset, but allow obvious documentation *placeholders* so doc files
+# that illustrate the shape of a secret don't trip the scanner.
+#
+# Real secrets in any file (docs included) WILL be flagged.
+
+title = "client-service-setup-cli gitleaks config"
+
+[extend]
+  # Use the full built-in gitleaks ruleset as the base.
+  useDefault = true
+
+[allowlist]
+  description = "Allow documentation placeholders only — never whole files"
+  # Match these patterns against the detected secret/match, not the file path.
+  regexTarget = "match"
+  regexes = [
+    # x-string placeholders, e.g. ab0t_sk_live_xxxxxxxx
+    '''(?i)x{4,}''',
+    # literal REDACTED placeholder
+    '''(?i)redacted''',
+    # ellipsis placeholders, e.g. ab0t_sk_live_...
+    '''\.\.\.''',
+    # uuid-shaped placeholders, e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    '''(?i)x{8}-x{4}-x{4}-x{4}-x{12}''',
+    # angle-bracket / curly placeholders, e.g. <your-key>, {PROVIDER}_KEY
+    '''<[^>]+>''',
+    '''\{[A-Z0-9_]+\}''',
+  ]

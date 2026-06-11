@@ -1,0 +1,148 @@
+{
+  "_archetype": "reseller",
+  "_description": "Reseller / White-Label. Three-tier hierarchy: Platform → Resellers → End Customers. Resellers manage their own customers. Permission ceilings prevent resellers from granting more than they have. Best for: white-label platforms, franchise systems, managed service providers, marketplace platforms.",
+  "_examples": [
+    "White-label email — resellers brand it as their own, manage their customer base",
+    "Managed hosting — MSPs provision and manage customer environments",
+    "Franchise POS — HQ sets menu/pricing ceiling, franchisees customize within bounds"
+  ],
+
+  "archetype": "reseller",
+
+  "service": {
+    "id": "my-platform",
+    "name": "My Platform",
+    "description": "A white-label platform with reseller channel"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "platform_root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Platform org — owns all permissions, manages reseller onboarding",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "reseller",
+      "slug_template": "{service_id}-{reseller_slug}",
+      "name_template": "{reseller_name}",
+      "description": "Reseller org — manages their own customer base. Gets a subset of platform permissions (permission ceiling).",
+      "creation": "admin-provisioned",
+      "org_type": "reseller",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": false
+      },
+      "membership": {
+        "default_role": "reseller_admin",
+        "signup_enabled": false,
+        "invite_enabled": true,
+        "auto_join": false
+      },
+      "permission_model": "org-inherited",
+      "permission_ceiling": true
+    },
+    {
+      "level": 2,
+      "role": "end_customer",
+      "slug_template": "{service_id}-{reseller_slug}-{customer_slug}",
+      "name_template": "{customer_name}",
+      "description": "End customer org — managed by their reseller. Users sign up here.",
+      "creation": "dynamic",
+      "org_type": "end_users",
+      "parent_tier": 1,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": true,
+        "invite_enabled": true,
+        "auto_join": false
+      },
+      "permission_model": "org-inherited"
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": true,
+    "_ceiling_note": "Resellers cannot grant permissions they don't have. Zanzibar inheritance ensures end customers can never exceed their reseller's permission set."
+  },
+
+  "hosted_login": {
+    "tier": 2,
+    "branding_source": "per-org",
+    "signup_enabled": true,
+    "_note": "Each end customer gets their own branded login page. Reseller controls branding for their customers."
+  },
+
+  "onboarding": {
+    "reseller_creation": "platform-admin",
+    "customer_creation": "reseller-admin-or-api",
+    "user_provisioning": "self-registration-or-invite",
+    "_note": "Platform admin creates resellers. Resellers create their own customers. End users self-register or are invited."
+  },
+
+  "service_accounts": {
+    "enabled": true,
+    "tiers": [0, 1],
+    "auth_methods": ["api_key", "client_credentials"],
+    "_note": "Platform service accounts for platform-level automation. Reseller service accounts for reseller-level API access and customer provisioning."
+  },
+
+  "delegation": {
+    "enabled": false,
+    "_note": "Optional. Enable if reseller admins need to delegate customer management to support staff."
+  },
+
+  "sso": {
+    "enabled": false,
+    "saml": false,
+    "jit_provisioning": false,
+    "tiers": [1, 2],
+    "_note": "Optional. Resellers may have their own corporate IdP. End customers under enterprise resellers may also need SSO."
+  },
+
+  "teams": {
+    "enabled": false,
+    "tiers": [2],
+    "_note": "Optional. Enable if end customers need sub-groups (e.g., departments within a customer org)."
+  },
+
+  "_org_diagram": [
+    "Platform Org (my-platform)                              [level 0 — all permissions]",
+    "  ├── Reseller A (my-platform-alpha)                    [level 1 — permission ceiling applied]",
+    "  │     ├── Customer A1 (my-platform-alpha-acme)        [level 2 — end users]",
+    "  │     │     ├── User 1 (member)",
+    "  │     │     └── User 2 (member)",
+    "  │     └── Customer A2 (my-platform-alpha-globex)      [level 2 — end users]",
+    "  │           └── User 3 (member)",
+    "  └── Reseller B (my-platform-beta)                     [level 1 — different ceiling]",
+    "        └── Customer B1 (my-platform-beta-initech)      [level 2 — end users]",
+    "              ├── User 4 (member)",
+    "              └── User 5 (member)"
+  ],
+
+  "_zero_config_note": "Three-tier Zanzibar inheritance: Platform → Reseller → Customer. Each level inherits from its parent. Permission ceilings are structural — a reseller's customers can never exceed the reseller's own permission set."
+}

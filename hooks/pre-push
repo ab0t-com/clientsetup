@@ -1,0 +1,73 @@
+#!/bin/sh
+# Pre-push hook for client-service-setup-cli.
+#
+# Refuses pushes from clones that have been populated with live setup
+# state — service-specific configs, real credentials, internal docs.
+# Those files are all gitignored (they won't end up on the remote even
+# without this hook) but the hook is a louder, earlier signal: pushes
+# should originate from clean clones, not from working clones that have
+# been used to onboard a real service.
+#
+# Bypass (use sparingly): git push --no-verify
+#
+# This hook is activated when `git config core.hooksPath hooks` is set.
+# The top-level `setup` script auto-sets it on first run.
+
+set -e
+
+populated=""
+
+add() {
+  populated="${populated}
+  $1"
+}
+
+# Real credential files in credentials/ (excluding *.example and README)
+if [ -d credentials ]; then
+  for f in credentials/*.json; do
+    [ -f "$f" ] || continue
+    case "$f" in *.example) continue ;; esac
+    add "$f"
+  done
+fi
+
+# Service-specific configs (gitignored — only .example tracked)
+for f in config/permissions.json \
+         config/hosted-login.json \
+         config/oauth-client.json \
+         config/api-consumers.json; do
+  [ -f "$f" ] && add "$f"
+done
+
+# Service-client passwords
+if [ -d scripts/service-client-setup/clients.d ]; then
+  for f in scripts/service-client-setup/clients.d/*.json; do
+    [ -f "$f" ] || continue
+    case "$f" in *.example) continue ;; esac
+    add "$f"
+  done
+fi
+
+# Internal docs (org IDs, design notes)
+[ -d internal ] && add "internal/"
+
+if [ -n "$populated" ]; then
+  cat >&2 <<EOF
+
+✗ push BLOCKED — this clone has been populated with live setup state:
+$populated
+
+This repo must only be pushed from clean clones (no service config,
+credentials, or internal docs). To push fixes, do this instead:
+
+  cd /tmp && git clone <this repo's url> setup-cli-clean
+  cd setup-cli-clean
+  # cherry-pick or re-apply your changes here
+  git push
+
+If you've verified the push is safe and want to bypass once:
+  git push --no-verify
+
+EOF
+  exit 1
+fi

@@ -1,0 +1,27 @@
+{
+    "provider": {
+        "service_id": "provider-name",
+        "service_name": "Provider Display Name",
+        "credentials_path": "/absolute/path/to/provider/output/credentials/provider.json",
+        "service_url": "http://localhost:PORT"
+    },
+    "client": {
+        "service_id": "your-service",
+        "service_name": "Your Service Name",
+        "customer_org_name": "Your Service - Provider Customer",
+        "customer_org_slug": "provider-customer-your-service",
+        "service_account_email": "your-service@provider.customers",
+        "service_account_password": "CHANGE_ME_strong_password"
+    },
+    "permissions": [
+        "provider.read",
+        "provider.read.resource1",
+        "provider.read.resource2",
+        "provider.cross_tenant"
+    ],
+    "api_key": {
+        "name": "your-service-provider-backend",
+        "rate_limit": 10000,
+        "metadata_purpose": "Backend API access for Your Service to proxy provider data on behalf of authenticated users"
+    }
+}

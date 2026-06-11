@@ -1,0 +1,48 @@
+# Service-specific config — only .example files are committed
+config/permissions.json
+config/hosted-login.json
+config/oauth-client.json
+config/api-consumers.json
+
+# Internal docs — design notes, audits, tickets (contain real org IDs, credentials, internal refs)
+internal/
+TASKLIST*
+tasklist*
+
+# Consumer registration configs — contain service account passwords
+scripts/service-client-setup/clients.d/*.json
+!scripts/service-client-setup/clients.d/*.json.example
+
+# Credentials — real secrets live in credentials/*.json (blocked by credentials/.gitignore)
+*.env
+*.env.*
+!*.env.example
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs
+*.log
+logs/
+
+# Temp files
+*.tmp
+*.bak
+*.bak.*
+
+# Node (if SDK tooling is added later)
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,121 @@
+{
+  "_archetype": "b2b-multi-tenant",
+  "_description": "B2B Multi-Tenant. Each customer (company, team, workspace) gets their own org under the service. Customers can self-register or be provisioned by admin. Users within each customer org are isolated from other customers. Best for: B2B SaaS, team collaboration tools, project management platforms.",
+  "_examples": [
+    "Project management — each company has its own workspace with isolated projects",
+    "CRM — each sales team has its own pipeline and contacts",
+    "Analytics platform — each customer has isolated dashboards and data"
+  ],
+
+  "archetype": "b2b-multi-tenant",
+
+  "service": {
+    "id": "my-service",
+    "name": "My Service",
+    "description": "A B2B multi-tenant SaaS platform"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "service_root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Platform org — owns permissions, global admin, API keys",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "customer",
+      "slug_template": "{service_id}-{customer_slug}",
+      "name_template": "{customer_name}",
+      "description": "Customer org — one per customer/company/workspace. Created during onboarding or self-service.",
+      "creation": "dynamic",
+      "org_type": "customer",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": false,
+        "invite_enabled": true,
+        "auto_join": false,
+        "admin_roles": ["owner", "admin"]
+      },
+      "permission_model": "org-inherited"
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": false
+  },
+
+  "hosted_login": {
+    "tier": 1,
+    "branding_source": "per-org",
+    "signup_enabled": false
+  },
+
+  "onboarding": {
+    "customer_creation": "admin-or-api",
+    "user_provisioning": "invite",
+    "first_user_role": "owner",
+    "_note": "First user in each customer org becomes owner. Owner invites rest of team."
+  },
+
+  "service_accounts": {
+    "enabled": true,
+    "tiers": [0, 1],
+    "auth_methods": ["api_key", "client_credentials"],
+    "_note": "Platform-level service accounts for backend integrations. Customer-level service accounts for customer-owned automations (webhooks, CI/CD)."
+  },
+
+  "delegation": {
+    "enabled": false,
+    "_note": "Optional. Enable if customer admins need vacation coverage or support impersonation."
+  },
+
+  "sso": {
+    "enabled": false,
+    "saml": false,
+    "jit_provisioning": false,
+    "tiers": [1],
+    "_note": "Optional per-customer. Enterprise customers may require SSO via their corporate IdP. Each customer org can configure its own SAML provider."
+  },
+
+  "teams": {
+    "enabled": false,
+    "tiers": [1],
+    "_note": "Optional. Enable if customers need sub-groups within their org (e.g., project teams, departments)."
+  },
+
+  "_org_diagram": [
+    "Service Org (my-service)                    [level 0 — platform admin]",
+    "  ├── Customer A Org (my-service-acme)       [level 1 — isolated tenant]",
+    "  │     ├── Alice (owner)",
+    "  │     ├── Bob (admin)",
+    "  │     └── Charlie (member)",
+    "  ├── Customer B Org (my-service-globex)     [level 1 — isolated tenant]",
+    "  │     ├── Dave (owner)",
+    "  │     └── Eve (member)",
+    "  └── Customer C Org (my-service-initech)    [level 1 — isolated tenant]",
+    "        └── Frank (owner)"
+  ],
+
+  "_zero_config_note": "Each customer org inherits permissions from service org via Zanzibar parent relationship. Users get permissions from customer org membership. Cross-tenant isolation is structural — no data leaks between customer orgs."
+}

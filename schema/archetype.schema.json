@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auth.service.ab0t.com/schemas/archetype/v1",
+  "title": "Organization Archetype",
+  "description": "Defines an org hierarchy pattern (self-service, B2B, reseller, departmental, corporate, dynamic). Archetypes are templates — they describe the intended structure, not runtime config.",
+  "type": "object",
+  "required": ["archetype", "service", "tiers"],
+  "properties": {
+    "_archetype": {
+      "type": "string",
+      "description": "Archetype name (documentation field)"
+    },
+    "_description": {
+      "type": "string",
+      "description": "Human-readable archetype description"
+    },
+    "_examples": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Real-world usage examples"
+    },
+    "_org_diagram": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "ASCII art showing the org hierarchy"
+    },
+    "_zero_config_note": {
+      "type": "string"
+    },
+    "_key_differences_from_departmental": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "archetype": {
+      "type": "string",
+      "enum": ["self-service", "b2b-multi-tenant", "reseller", "departmental", "corporate", "dynamic"],
+      "description": "Archetype identifier"
+    },
+    "service": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Service identifier (placeholder — replaced during setup)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tiers": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Org hierarchy tiers from root (level 0) downward",
+      "items": {
+        "type": "object",
+        "required": ["level", "role", "slug_template"],
+        "properties": {
+          "level": {
+            "description": "Tier depth. 0 = service root. Integer or 'N' for recursive tiers.",
+            "oneOf": [
+              { "type": "integer", "minimum": 0 },
+              { "type": "string", "const": "N" }
+            ]
+          },
+          "role": {
+            "type": "string",
+            "description": "Semantic role of this tier (service_root, end_users, customer, division, department, sub_unit, reseller, reseller_customer)"
+          },
+          "slug_template": {
+            "type": "string",
+            "description": "Template for org slug generation. Variables: {service_id}, {customer_slug}, {division_slug}, {dept_slug}, {parent_slug}, {unit_slug}",
+            "examples": ["{service_id}", "{service_id}-{customer_slug}"]
+          },
+          "name_template": {
+            "type": "string",
+            "description": "Template for org display name"
+          },
+          "description": {
+            "type": "string"
+          },
+          "creation": {
+            "type": "string",
+            "enum": ["setup", "dynamic", "admin-provisioned", "admin-or-api", "reseller-provisioned", "api"],
+            "description": "How orgs at this tier are created"
+          },
+          "org_type": {
+            "type": "string",
+            "description": "Org type tag stored in settings.type"
+          },
+          "parent_tier": {
+            "description": "Which tier is the parent. Integer or 'any' for recursive.",
+            "oneOf": [
+              { "type": "integer", "minimum": 0 },
+              { "type": "string", "const": "any" }
+            ]
+          },
+          "capabilities": {
+            "type": "object",
+            "description": "What this tier can do",
+            "properties": {
+              "has_permissions": { "type": "boolean", "description": "Owns the permission schema" },
+              "has_api_key": { "type": "boolean", "description": "Gets an API key for service-to-service auth" },
+              "has_admin": { "type": "boolean", "description": "Has admin users" },
+              "has_hosted_login": { "type": "boolean", "description": "Has a hosted login page" },
+              "has_end_users": { "type": "boolean", "description": "End-users join at this tier" }
+            },
+            "additionalProperties": false
+          },
+          "membership": {
+            "type": "object",
+            "description": "How users join orgs at this tier",
+            "properties": {
+              "default_role": { "type": "string" },
+              "signup_enabled": { "type": "boolean" },
+              "invite_enabled": { "type": "boolean" },
+              "auto_join": { "type": "boolean" },
+              "admin_roles": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "custom_roles": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Additional roles available at this tier"
+              },
+              "_auto_join_note": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "permission_model": {
+            "type": "string",
+            "enum": ["org-inherited", "team-inherited", "direct"],
+            "description": "How permissions flow to users at this tier"
+          },
+          "permission_ceiling": {
+            "type": "boolean",
+            "description": "Whether child orgs are limited to parent's permission set"
+          },
+          "lifecycle": {
+            "type": "object",
+            "description": "Lifecycle management for dynamic orgs (TTL, cleanup)",
+            "properties": {
+              "created_by": { "type": "string" },
+              "ttl_enabled": { "type": "boolean" },
+              "ttl_default": { "type": "string" },
+              "auto_cleanup": { "type": "boolean" },
+              "_note": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "_note": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "isolation": {
+      "type": "object",
+      "description": "Multi-tenant isolation rules",
+      "properties": {
+        "cross_tier_visibility": { "type": "boolean", "description": "Can child tier see parent tier data" },
+        "cross_peer_visibility": { "type": "boolean", "description": "Can peer orgs at same tier see each other" },
+        "permission_ceiling": { "type": "boolean", "description": "Child orgs limited to parent permissions" },
+        "hard_walls": { "type": "boolean", "description": "Structural isolation (not just permission-based)" },
+        "_note": { "type": "string" },
+        "_wall_note": { "type": "string" },
+        "_ceiling_note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "hosted_login": {
+      "type": "object",
+      "description": "Hosted login page configuration for this archetype",
+      "properties": {
+        "tier": {
+          "description": "Which tier gets the hosted login page. Null if no hosted login.",
+          "oneOf": [
+            { "type": "integer" },
+            { "type": "null" }
+          ]
+        },
+        "branding_source": {
+          "type": "string",
+          "enum": ["service", "per-org"],
+          "description": "Whether branding comes from the service config or is per-org"
+        },
+        "signup_enabled": { "type": "boolean" },
+        "_note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "onboarding": {
+      "type": "object",
+      "description": "How customers/tenants are onboarded",
+      "properties": {
+        "customer_creation": { "type": "string" },
+        "user_provisioning": { "type": "string" },
+        "first_user_role": { "type": "string" },
+        "_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "service_accounts": {
+      "type": "object",
+      "description": "Non-human identity configuration",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "tiers": { "type": "array", "items": { "type": "integer" } },
+        "auth_methods": { "type": "array", "items": { "type": "string" } },
+        "_note": { "type": "string" },
+        "_how_it_works": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "delegation": {
+      "type": "object",
+      "description": "Act-on-behalf / impersonation configuration",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "tiers": { "type": "array", "items": { "type": "integer" } },
+        "_note": { "type": "string" },
+        "_how_it_works": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "sso": {
+      "type": "object",
+      "description": "SSO / SAML / JIT provisioning configuration",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "saml": { "type": "boolean" },
+        "jit_provisioning": { "type": "boolean" },
+        "tiers": { "type": "array", "items": { "type": "integer" } },
+        "_note": { "type": "string" },
+        "_how_it_works": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "teams": {
+      "type": "object",
+      "description": "Within-org team grouping",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "tiers": { "type": "array", "items": { "type": "integer" } },
+        "_note": { "type": "string" },
+        "_how_it_works": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "forward_auth": {
+      "type": "object",
+      "description": "Edge proxy ForwardAuth integration",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "_how_it_works": { "type": "object", "additionalProperties": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

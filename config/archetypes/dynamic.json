@@ -1,0 +1,122 @@
+{
+  "_archetype": "dynamic",
+  "_description": "Dynamic / Agent-Driven. Orgs are created and destroyed programmatically — by APIs, automation agents, CI/CD pipelines, or user actions. Short-lived or elastic org structures. Best for: AI agent platforms, CI/CD environments, sandbox/trial provisioning, IoT device fleets, gaming (match lobbies).",
+  "_examples": [
+    "AI agent platform — each agent session gets a scoped org with limited permissions and TTL",
+    "CI/CD pipeline — each build gets a temporary org for isolated test environments",
+    "Gaming platform — match lobbies created on-demand, destroyed after match ends",
+    "Trial provisioning — free trial orgs auto-created on signup, upgraded or expired"
+  ],
+
+  "archetype": "dynamic",
+
+  "service": {
+    "id": "my-platform",
+    "name": "My Platform",
+    "description": "A platform with dynamic, programmatic org creation"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "platform_root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Platform org — owns permissions, API keys for programmatic org management",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "dynamic_instance",
+      "slug_template": "{service_id}-{instance_id}",
+      "name_template": "{instance_label}",
+      "description": "Dynamic org instance — created and destroyed via API. May have TTL.",
+      "creation": "api",
+      "org_type": "dynamic",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": false,
+        "has_hosted_login": false,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": false,
+        "invite_enabled": false,
+        "auto_join": true,
+        "_auto_join_note": "Users are programmatically added to the org instance by the platform, not invited."
+      },
+      "permission_model": "org-inherited",
+      "lifecycle": {
+        "created_by": "api",
+        "ttl_enabled": true,
+        "ttl_default": "24h",
+        "auto_cleanup": true,
+        "_note": "Platform API creates org, adds users, and optionally sets a TTL. Cleanup removes org and all memberships."
+      }
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": true,
+    "_note": "Each dynamic instance is isolated. An agent in instance A cannot access instance B."
+  },
+
+  "hosted_login": {
+    "tier": null,
+    "_note": "No hosted login — users are authenticated at the platform level and programmatically placed into dynamic orgs."
+  },
+
+  "onboarding": {
+    "instance_creation": "api-driven",
+    "user_provisioning": "programmatic",
+    "_note": "The platform's backend creates orgs and manages membership via API. No human admin step."
+  },
+
+  "service_accounts": {
+    "enabled": true,
+    "tiers": [0],
+    "auth_methods": ["api_key", "client_credentials"],
+    "_note": "Platform service account drives all org creation/destruction. Uses API key or client_credentials for m2m auth."
+  },
+
+  "delegation": {
+    "enabled": false,
+    "_note": "Not applicable — membership is programmatic, not human-managed."
+  },
+
+  "sso": {
+    "enabled": false,
+    "_note": "Not applicable — users authenticated at platform level, placed into dynamic orgs programmatically."
+  },
+
+  "teams": {
+    "enabled": false,
+    "_note": "Not applicable — dynamic instances are short-lived, teams add unnecessary complexity."
+  },
+
+  "_org_diagram": [
+    "Platform Org (my-platform)                        [level 0 — API keys, automation]",
+    "  ├── Instance abc123 (my-platform-abc123)         [level 1 — dynamic, TTL: 24h]",
+    "  │     ├── Agent-007 (member)",
+    "  │     └── User-Alice (member)",
+    "  ├── Instance def456 (my-platform-def456)         [level 1 — dynamic, TTL: 1h]",
+    "  │     └── CI-Bot (member)",
+    "  └── Instance ghi789 (my-platform-ghi789)         [level 1 — dynamic, expired → cleaned up]",
+    "        (deleted)"
+  ],
+
+  "_zero_config_note": "Fully programmatic. The platform API creates/destroys orgs as needed. Users inherit permissions from org membership while the org exists. When the org is destroyed, all access is revoked instantly — no cleanup scripts needed."
+}

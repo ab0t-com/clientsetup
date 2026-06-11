@@ -1,0 +1,101 @@
+{
+  "$schema": "https://auth.service.ab0t.com/schemas/permissions/v2",
+  "service": {
+    "id": "my-service",
+    "name": "My Service",
+    "description": "What this service does",
+    "version": "1.0.0",
+    "audience": "my-service",
+    "maintainer": "team@example.com"
+  },
+  "registration": {
+    "service": "my-service",
+    "actions": ["read", "write", "create", "delete", "execute", "admin"],
+    "resources": ["items", "settings", "reports"]
+  },
+  "permissions": [
+    {
+      "id": "my-service.read.items",
+      "name": "Read Items",
+      "description": "View items in the catalog",
+      "risk_level": "low",
+      "cost_impact": false,
+      "default_grant": true
+    },
+    {
+      "id": "my-service.write.items",
+      "name": "Write Items",
+      "description": "Create and update items",
+      "risk_level": "medium",
+      "cost_impact": false,
+      "default_grant": true
+    },
+    {
+      "id": "my-service.delete.items",
+      "name": "Delete Items",
+      "description": "Remove items permanently",
+      "risk_level": "high",
+      "cost_impact": false,
+      "default_grant": true
+    },
+    {
+      "id": "my-service.read.reports",
+      "name": "Read Reports",
+      "description": "View analytics and reports",
+      "risk_level": "low",
+      "cost_impact": false,
+      "default_grant": true
+    },
+    {
+      "id": "my-service.admin",
+      "name": "Administrator",
+      "description": "Full administrative access to all resources",
+      "risk_level": "critical",
+      "cost_impact": true,
+      "default_grant": false,
+      "implies": [
+        "my-service.read.items",
+        "my-service.write.items",
+        "my-service.delete.items",
+        "my-service.read.reports"
+      ]
+    }
+  ],
+  "roles": [
+    {
+      "id": "my-service-user",
+      "name": "User",
+      "description": "Standard user with default access",
+      "permissions": [
+        "my-service.read.items",
+        "my-service.write.items",
+        "my-service.delete.items",
+        "my-service.read.reports"
+      ],
+      "default": true
+    },
+    {
+      "id": "my-service-admin",
+      "name": "Administrator",
+      "description": "Full admin access",
+      "permissions": [
+        "my-service.admin"
+      ],
+      "default": false
+    }
+  ],
+  "multi_tenancy": {
+    "isolation_model": "organization",
+    "tenant_field": "org_id",
+    "enforcement": "strict"
+  },
+  "end_users": {
+    "auto_provision": true,
+    "default_role": "my-service-user",
+    "org_structure": {
+      "pattern": "flat",
+      "config": {}
+    },
+    "notes": "Users joining via hosted login get 'member' role in the end-users org. Permissions are inherited through team membership (the auth service's default-team flow). Org_structure controls whether each user ALSO gets a private nested workspace org. Pattern 'flat' (default) creates no extra orgs — same as before. Set pattern to 'workspace-per-user' if you want every user to own their own private space (think GitHub user namespaces or Notion personal workspaces). See README's 'Org Structures' section for details."
+  }
+}

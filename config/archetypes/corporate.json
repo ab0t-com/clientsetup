@@ -1,0 +1,221 @@
+{
+  "_archetype": "corporate",
+  "_description": "Corporate / Enterprise. Deep org hierarchy with SSO, delegation, service accounts, and teams. Orgs nest arbitrarily (Company → Division → Department → Team → Project). Each level can have its own IdP, hosted login, and permission scope. Best for: enterprise software, government, healthcare, financial services, any organization with complex reporting lines.",
+  "_examples": [
+    "Enterprise ERP — HQ → Regional offices → Departments → Teams, SSO via corporate Okta",
+    "Hospital network — Health System → Hospital → Department (ER, Radiology, Pharmacy), SAML with Epic IdP",
+    "Government — Agency → Bureau → Division → Branch, strict delegation chains, service accounts for inter-system integration",
+    "Financial services — Holding company → Business units → Trading desks, delegation for vacation coverage"
+  ],
+
+  "archetype": "corporate",
+
+  "service": {
+    "id": "my-enterprise",
+    "name": "My Enterprise System",
+    "description": "Enterprise system with deep org hierarchy and SSO"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Root org — owns permission schema, global admin, platform API keys. No end users here.",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "division",
+      "slug_template": "{service_id}-{division_slug}",
+      "name_template": "{division_name}",
+      "description": "Top-level business unit. May have its own SSO provider, admin team, and permission ceiling.",
+      "creation": "admin-provisioned",
+      "org_type": "division",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": false,
+        "invite_enabled": true,
+        "auto_join": false,
+        "admin_roles": ["division_admin"]
+      },
+      "permission_model": "org-inherited",
+      "permission_ceiling": true
+    },
+    {
+      "level": 2,
+      "role": "department",
+      "slug_template": "{service_id}-{division_slug}-{dept_slug}",
+      "name_template": "{department_name}",
+      "description": "Department within a division. Inherits from division. Can have its own teams, hosted login, and delegation rules.",
+      "creation": "admin-provisioned",
+      "org_type": "department",
+      "parent_tier": 1,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": false,
+        "invite_enabled": true,
+        "auto_join": false,
+        "admin_roles": ["dept_admin", "dept_manager"]
+      },
+      "permission_model": "org-inherited"
+    },
+    {
+      "level": "N",
+      "role": "sub_unit",
+      "slug_template": "{parent_slug}-{unit_slug}",
+      "name_template": "{unit_name}",
+      "description": "Arbitrary deeper nesting. parent_id chains as deep as needed. Each sub-unit inherits from its parent via Zanzibar. Visualization supports max_depth up to 10.",
+      "creation": "admin-provisioned",
+      "org_type": "sub_unit",
+      "parent_tier": "any",
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": false,
+        "invite_enabled": true,
+        "auto_join": false
+      },
+      "permission_model": "org-inherited",
+      "_note": "This tier is recursive — any org can be parent of any other org via parent_id. The tier array shows the common pattern but the hierarchy is not limited to these levels."
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": true,
+    "hard_walls": true,
+    "_note": "Divisions and departments are isolated by default. A user in Finance cannot see Engineering data. Permission ceilings ensure child orgs cannot exceed parent's permission set."
+  },
+
+  "hosted_login": {
+    "tier": 1,
+    "branding_source": "per-org",
+    "signup_enabled": false,
+    "_note": "Each division/department can have its own branded login page. No self-registration — all users provisioned via invite or SSO JIT."
+  },
+
+  "sso": {
+    "enabled": true,
+    "saml": true,
+    "jit_provisioning": true,
+    "tiers": [1, 2],
+    "_how_it_works": {
+      "initiate": "GET /organizations/{org_slug}/auth/sso/initiate — redirects to org's IdP",
+      "callback": "POST /organizations/{org_slug}/auth/sso/callback — validates SAML assertion, JIT creates user, adds to org",
+      "per_org_idp": "Each org (division, department) can configure its own SAML IdP. A hospital system might have Epic for clinical, Okta for admin.",
+      "jit": "Users authenticated by IdP are auto-created and added to the org. No manual provisioning needed.",
+      "oauth_integration": "SSO initiate accepts OAuth params (client_id, redirect_uri, code_challenge) — SSO feeds into the standard OAuth PKCE flow"
+    }
+  },
+
+  "service_accounts": {
+    "enabled": true,
+    "tiers": [0, 1],
+    "auth_methods": ["api_key", "client_credentials"],
+    "_how_it_works": {
+      "create": "POST /admin/users/create-service-account {email, name, permissions[], org_id}",
+      "returns": "{id, email, api_key (shown once), permissions[]}",
+      "api_key_auth": "X-API-Key header — org-scoped, permission-scoped, full CRUD at /api-keys/",
+      "client_credentials": "POST /auth/oauth/token grant_type=client_credentials&client_id=...&client_secret=...",
+      "password_exempt": "Service accounts are exempt from password rotation policy",
+      "use_cases": "CI/CD pipelines, inter-service communication, monitoring bots, ETL jobs, automated reports"
+    }
+  },
+
+  "delegation": {
+    "enabled": true,
+    "tiers": [1, 2],
+    "_how_it_works": {
+      "grant": "POST /delegation/grant {actor_id, scope:[perms], expires_in_hours:24}",
+      "check": "GET /delegation/check/{target_user_id} — returns {allowed, reason, scope[]}",
+      "act_as": "POST /auth/delegate {target_user_id} — returns delegated JWT with both actor and subject",
+      "list": "GET /delegation/list/{user_id} — shows granted_to_others and received_from_others",
+      "revoke": "DELETE /delegation/revoke/{actor_id} — immediate revocation",
+      "constraints": "Can only delegate permissions YOU have. Cannot delegate to yourself. Default 24h expiry.",
+      "use_cases": "Vacation coverage, support access, manager approvals, admin assistance"
+    }
+  },
+
+  "teams": {
+    "enabled": true,
+    "tiers": [1, 2],
+    "_how_it_works": {
+      "create": "POST /organizations/{org_id}/teams",
+      "members": "POST /teams/{team_id}/members — add/remove users",
+      "permissions": "POST /teams/{team_id}/permissions — team-level permission grants",
+      "nesting": "Teams can have parent/child relationships within an org",
+      "inheritance": "Team members inherit team permissions via Zanzibar",
+      "use_cases": "Cross-department project teams, role-based groups (reviewers, approvers), on-call rotations"
+    }
+  },
+
+  "forward_auth": {
+    "enabled": true,
+    "_how_it_works": {
+      "endpoint": "GET/POST/HEAD /forward-auth/ — Traefik ForwardAuth compatible",
+      "behavior": "200 = authorized (enrichment headers), 401 = no identity, 403 = no permission",
+      "use_case": "Edge proxy authorization — protect services without modifying application code"
+    }
+  },
+
+  "_org_diagram": [
+    "Root Org (my-enterprise)                                    [level 0 — global admin, API keys]",
+    "  ├── Engineering Division (my-enterprise-eng)               [level 1 — own IdP (Okta), own admin]",
+    "  │     ├── Platform Dept (my-enterprise-eng-platform)       [level 2 — teams within]",
+    "  │     │     ├── Team: Auth (team, permissions inherited)   [team within dept]",
+    "  │     │     ├── Team: Infra (team, permissions inherited)",
+    "  │     │     ├── Alice (dept_admin)",
+    "  │     │     ├── Bot: CI-Pipeline (service account, API key)",
+    "  │     │     └── Bob (member, delegated access from Alice during PTO)",
+    "  │     └── Data Dept (my-enterprise-eng-data)               [level 2]",
+    "  │           ├── Team: Analytics",
+    "  │           └── Charlie (member)",
+    "  ├── Finance Division (my-enterprise-fin)                   [level 1 — own IdP (Azure AD)]",
+    "  │     ├── Accounting Dept (my-enterprise-fin-accounting)   [level 2]",
+    "  │     │     └── Dave (member)",
+    "  │     └── Treasury Dept (my-enterprise-fin-treasury)       [level 2]",
+    "  │           └── Eve (member)",
+    "  └── Bot: Monitoring (service account at root level)"
+  ],
+
+  "_key_differences_from_departmental": [
+    "Deep nesting — parent_id chains arbitrarily, not limited to 2 levels",
+    "SSO/SAML — per-org IdP with JIT provisioning (departmental has no SSO)",
+    "Service accounts — first-class non-human identities with org-scoped API keys",
+    "Delegation — scoped, time-limited act-on-behalf with delegated JWTs",
+    "Teams — within-org grouping for cross-cutting concerns (departmental uses orgs for everything)",
+    "Forward auth — edge proxy integration for zero-code service protection"
+  ]
+}

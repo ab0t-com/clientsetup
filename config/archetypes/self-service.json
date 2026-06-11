@@ -1,0 +1,104 @@
+{
+  "_archetype": "self-service",
+  "_description": "Self-Service SaaS. Single end-user pool where anyone can sign up. All users get the same default permissions through org membership. Best for: consumer apps, developer tools, free-tier products, internal tools with open access.",
+  "_examples": [
+    "Task manager — anyone signs up, gets read/write/delete on their own tasks",
+    "Developer portal — anyone signs up, gets API access",
+    "Internal dashboard — employees sign up, get read access"
+  ],
+
+  "archetype": "self-service",
+
+  "service": {
+    "id": "my-service",
+    "name": "My Service",
+    "description": "A self-service SaaS application"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "service_root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Service org — owns permissions and admin access",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "end_users",
+      "slug_template": "{service_id}-users",
+      "name_template": "{service_name} Users",
+      "description": "All end users. Self-registration enabled. Permissions inherited from service org.",
+      "creation": "setup",
+      "org_type": "end_users",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": false,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": true,
+        "invite_enabled": true,
+        "auto_join": false
+      },
+      "permission_model": "org-inherited"
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": false
+  },
+
+  "hosted_login": {
+    "tier": 1,
+    "branding_source": "service",
+    "signup_enabled": true
+  },
+
+  "service_accounts": {
+    "enabled": false,
+    "tiers": [0],
+    "auth_methods": ["api_key"],
+    "_note": "Optional. Enable if your backend needs m2m API access (e.g., cron jobs, webhooks)."
+  },
+
+  "delegation": {
+    "enabled": false,
+    "_note": "Typically not needed for self-service — all users have the same role."
+  },
+
+  "sso": {
+    "enabled": false,
+    "_note": "Optional. Enable if targeting enterprise customers who require SSO for their users."
+  },
+
+  "teams": {
+    "enabled": false,
+    "_note": "Typically not needed — single user pool with uniform permissions."
+  },
+
+  "_org_diagram": [
+    "Service Org (my-service)              [level 0 — admin, API key, permissions]",
+    "  └── End-Users Org (my-service-users) [level 1 — hosted login, self-registration]",
+    "        ├── User A (member) → inherits default_grant permissions",
+    "        ├── User B (member) → inherits default_grant permissions",
+    "        └── User C (member) → inherits default_grant permissions"
+  ],
+
+  "_zero_config_note": "Users get permissions from org membership. No per-user grants. No callbacks. No cron. No maintenance."
+}

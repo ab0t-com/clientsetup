@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auth.service.ab0t.com/schemas/hosted-login/v1",
+  "title": "Hosted Login Configuration",
+  "description": "Login page branding, auth methods, and registration settings. Sent to PUT /organizations/{org_id}/login-config by 03-setup-hosted-login.sh.",
+  "type": "object",
+  "properties": {
+    "branding": {
+      "type": "object",
+      "description": "Visual branding for the hosted login page",
+      "properties": {
+        "primary_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Primary brand color as hex",
+          "examples": ["#111111", "#4A90D9"]
+        },
+        "background_color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Page background color as hex"
+        },
+        "page_title": {
+          "type": "string",
+          "description": "Browser tab title for the login page"
+        },
+        "hide_powered_by": {
+          "type": "boolean",
+          "description": "Whether to hide the 'Powered by Auth Mesh' footer"
+        },
+        "login_template": {
+          "type": "string",
+          "enum": ["default", "minimal", "corporate"],
+          "description": "Login page template variant"
+        }
+      },
+      "additionalProperties": false
+    },
+    "content": {
+      "type": "object",
+      "description": "Text content shown on the login page",
+      "properties": {
+        "welcome_message": {
+          "type": "string",
+          "description": "Heading shown on the login form"
+        },
+        "signup_message": {
+          "type": "string",
+          "description": "Heading shown on the signup form"
+        },
+        "footer_message": {
+          "type": "string",
+          "description": "Footer text below the form"
+        }
+      },
+      "additionalProperties": false
+    },
+    "auth_methods": {
+      "type": "object",
+      "description": "Authentication method toggles",
+      "required": ["email_password"],
+      "properties": {
+        "email_password": {
+          "type": "boolean",
+          "description": "Enable email/password authentication"
+        },
+        "signup_enabled": {
+          "type": "boolean",
+          "description": "Allow new user self-registration"
+        },
+        "invitation_only": {
+          "type": "boolean",
+          "description": "Restrict access to invited users only. Overrides signup_enabled when true."
+        }
+      },
+      "additionalProperties": false
+    },
+    "registration": {
+      "type": "object",
+      "description": "New user registration settings",
+      "required": ["default_role"],
+      "properties": {
+        "default_role": {
+          "type": "string",
+          "description": "Role assigned to newly registered users",
+          "examples": ["end_user", "member"]
+        },
+        "require_email_verification": {
+          "type": "boolean",
+          "description": "Require email verification before granting access"
+        },
+        "collect_name": {
+          "type": "boolean",
+          "description": "Show name field on registration form"
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "description": "Security-related login settings",
+      "properties": {
+        "post_logout_redirect_uri": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to redirect to after logout"
+        },
+        "remember_me_enabled": {
+          "type": "boolean",
+          "description": "Show 'Remember me' checkbox on login form"
+        },
+        "accept_invite_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL the auth service redirects to from /accept-invite when the invitation code is valid. The auth service appends ?code=<...> to this URL. Origin must match an entry in accept_invite_allowed_origins. Leave unset to use the bundled fallback page.",
+          "examples": ["https://my-service.example.com/welcome"]
+        },
+        "accept_invite_error_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL the auth service redirects to when the invitation code is used / expired / unknown. The auth service appends ?reason=used|expired|not_found|invalid. Origin must match an entry in accept_invite_allowed_origins. Leave unset to use the bundled fallback page.",
+          "examples": ["https://my-service.example.com/invite-error"]
+        },
+        "accept_invite_allowed_origins": {
+          "type": "array",
+          "description": "Allowlist of origins (scheme + host + optional port) that accept_invite_url and accept_invite_error_url may target. Mirrors the OAuth redirect_uris allowlist pattern — prevents open-redirect even if the config row is mutated out-of-band. Format: 'https://app.example.com' (no path, no trailing slash). 03-setup-hosted-login.sh will smart-default this from oauth-client.json's redirect_uris if you leave it empty.",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "examples": [["https://my-service.example.com"]]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

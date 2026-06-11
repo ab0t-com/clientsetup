@@ -1,0 +1,129 @@
+{
+  "_archetype": "departmental",
+  "_description": "Departmental / Internal. Organization with hard boundaries between departments. No self-registration — all users are invited by department admins. Departments cannot see each other's data. Best for: enterprise internal tools, government systems, healthcare (HIPAA), financial services, any system requiring strict data isolation.",
+  "_examples": [
+    "Hospital system — ER, Radiology, Pharmacy each isolated with role-based access",
+    "Enterprise ERP — Finance, HR, Engineering see only their own data",
+    "Government agency — divisions with classified data boundaries"
+  ],
+
+  "archetype": "departmental",
+
+  "service": {
+    "id": "my-enterprise",
+    "name": "My Enterprise System",
+    "description": "Internal enterprise system with departmental isolation"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "organization_root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Root org — global admin, permission schema, API keys. No direct users except platform admins.",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "department",
+      "slug_template": "{service_id}-{department_slug}",
+      "name_template": "{department_name}",
+      "description": "Department org — hard isolation boundary. Each department has its own admin, users, and permission subset.",
+      "creation": "admin-provisioned",
+      "org_type": "department",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": true,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": false,
+        "invite_enabled": true,
+        "auto_join": false,
+        "admin_roles": ["department_admin"],
+        "custom_roles": ["viewer", "contributor", "approver"]
+      },
+      "permission_model": "org-inherited",
+      "permission_ceiling": true
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": true,
+    "hard_walls": true,
+    "_wall_note": "Departments are fully isolated. No cross-department data access. A user in Finance cannot see Engineering data even if they have the same permission names — the Zanzibar check scopes to their org."
+  },
+
+  "hosted_login": {
+    "tier": 1,
+    "branding_source": "per-org",
+    "signup_enabled": false,
+    "_note": "No self-registration. All users are provisioned by department admins via invite."
+  },
+
+  "onboarding": {
+    "department_creation": "platform-admin",
+    "user_provisioning": "invite-only",
+    "first_user_role": "department_admin",
+    "_note": "Platform admin creates departments and assigns first department_admin. Department admins invite their own users."
+  },
+
+  "service_accounts": {
+    "enabled": true,
+    "tiers": [0],
+    "auth_methods": ["api_key", "client_credentials"],
+    "_note": "Platform-level service accounts for inter-system integration (ERP connectors, reporting pipelines, monitoring)."
+  },
+
+  "delegation": {
+    "enabled": true,
+    "tiers": [1],
+    "_note": "Department admins can delegate approval authority during absence. Scoped to permissions the delegator holds."
+  },
+
+  "sso": {
+    "enabled": true,
+    "saml": true,
+    "jit_provisioning": true,
+    "tiers": [1],
+    "_note": "Each department can have its own IdP or share the corporate IdP. JIT provisioning auto-creates users from SAML assertions."
+  },
+
+  "teams": {
+    "enabled": true,
+    "tiers": [1],
+    "_note": "Cross-functional teams within departments (e.g., project teams, review committees, on-call rotations)."
+  },
+
+  "_org_diagram": [
+    "Root Org (my-enterprise)                              [level 0 — global admin only]",
+    "  ├── Finance (my-enterprise-finance)                 [level 1 — hard wall]",
+    "  │     ├── Alice (department_admin)",
+    "  │     ├── Bob (approver)",
+    "  │     └── Charlie (viewer)",
+    "  ├── Engineering (my-enterprise-engineering)          [level 1 — hard wall]",
+    "  │     ├── Dave (department_admin)",
+    "  │     ├── Eve (contributor)",
+    "  │     └── Frank (contributor)",
+    "  └── HR (my-enterprise-hr)                           [level 1 — hard wall]",
+    "        ├── Grace (department_admin)",
+    "        └── Heidi (viewer)"
+  ],
+
+  "_zero_config_note": "Invite-only with hard isolation. No self-registration, no cross-department visibility. Permissions are scoped to the department org — same permission name in two departments does NOT mean shared access."
+}

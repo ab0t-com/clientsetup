@@ -1,0 +1,28 @@
+{
+  "name": "authsetup",
+  "version": "0.2.0",
+  "commit": "bf3ecac",
+  "go": "go1.23.6",
+  "targets": [
+    {
+      "name": "authsetup-darwin-amd64",
+      "size": 6234624,
+      "sha256": "a85264d3b2fdd65d60fe8bd058d3b3b5dbc403b31c4c15869e2f29bf0966c9fe"
+    },
+    {
+      "name": "authsetup-darwin-arm64",
+      "size": 5945106,
+      "sha256": "63d74d17965aae425c7d21012b5b55c24f439247fea0bd530bdc9a77eea59380"
+    },
+    {
+      "name": "authsetup-linux-amd64",
+      "size": 6078616,
+      "sha256": "8270cf7a464e48b63df93027d74dbd14f9ca743d05d4744cc0c7eca7c048d79e"
+    },
+    {
+      "name": "authsetup-linux-arm64",
+      "size": 5898392,
+      "sha256": "17287138713e839cb6b215bbed7d097d1bbe6bf0c8aa13aebd975331d3020e34"
+    }
+  ]
+}

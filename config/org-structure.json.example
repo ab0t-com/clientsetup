@@ -1,0 +1,106 @@
+{
+  "_schema_version": "1.1",
+  "_description": "Org structure configuration. Defines how your service organizes users, tenants, and permissions. Choose an archetype and customize. See config/archetypes/ for complete examples of each archetype.",
+
+  "archetype": "self-service",
+
+  "service": {
+    "id": "my-service",
+    "name": "My Service",
+    "description": "Service description for admin UIs"
+  },
+
+  "tiers": [
+    {
+      "level": 0,
+      "role": "service_root",
+      "slug_template": "{service_id}",
+      "name_template": "{service_name}",
+      "description": "Top-level service org. Owns permissions, API keys, admin accounts.",
+      "creation": "setup",
+      "org_type": "platform_service",
+      "capabilities": {
+        "has_permissions": true,
+        "has_api_key": true,
+        "has_admin": true,
+        "has_hosted_login": false,
+        "has_end_users": false
+      }
+    },
+    {
+      "level": 1,
+      "role": "end_users",
+      "slug_template": "{service_id}-users",
+      "name_template": "{service_name} Users",
+      "description": "End-user org. Users sign up here and inherit permissions from parent via Zanzibar parent relationship.",
+      "creation": "setup",
+      "org_type": "end_users",
+      "parent_tier": 0,
+      "capabilities": {
+        "has_permissions": false,
+        "has_api_key": false,
+        "has_admin": false,
+        "has_hosted_login": true,
+        "has_end_users": true
+      },
+      "membership": {
+        "default_role": "member",
+        "signup_enabled": true,
+        "invite_enabled": true,
+        "auto_join": false
+      },
+      "permission_model": "org-inherited"
+    }
+  ],
+
+  "isolation": {
+    "cross_tier_visibility": false,
+    "cross_peer_visibility": false,
+    "permission_ceiling": false
+  },
+
+  "hosted_login": {
+    "tier": 1,
+    "branding_source": "per-org",
+    "signup_enabled": true
+  },
+
+  "service_accounts": {
+    "enabled": false,
+    "tiers": [0],
+    "auth_methods": ["api_key", "client_credentials"],
+    "_description": "Cross-cutting — applies to any archetype. Service accounts are first-class: POST /admin/users/create-service-account creates an org-scoped identity with auto-generated API key, exempt from password rotation. Auth methods: api_key (X-API-Key header), client_credentials (OAuth 2.1 grant_type=client_credentials with client_secret)."
+  },
+
+  "delegation": {
+    "enabled": false,
+    "_description": "Cross-cutting — applies to any archetype. Allows User A to grant User B scoped, time-limited ability to act on their behalf. POST /delegation/grant {actor_id, scope[], expires_in_hours}. Actor gets a delegated JWT via POST /auth/delegate. Can only delegate permissions you have."
+  },
+
+  "sso": {
+    "enabled": false,
+    "saml": false,
+    "jit_provisioning": false,
+    "tiers": [1],
+    "_description": "Cross-cutting — per-org SAML SSO. Each org can have its own IdP (Okta, Azure AD, ADFS). JIT provisioning auto-creates users from SAML assertions and adds them to the org. Initiate: GET /organizations/{org_slug}/auth/sso/initiate. Integrates with OAuth PKCE flow."
+  },
+
+  "teams": {
+    "enabled": false,
+    "tiers": [1],
+    "_description": "Cross-cutting — within-org grouping with permission inheritance. Nested parent/child teams. Members inherit team permissions. Useful for departments-within-an-org or role-based groups without creating separate orgs."
+  },
+
+  "_platform_capabilities_reference": {
+    "_note": "These are Auth Mesh platform features available to all archetypes. This section is informational — the fields above control which are enabled for your service.",
+    "org_hierarchy": "parent_id chains arbitrarily deep. Visualization supports max_depth up to 10. Any org can be parent of any other.",
+    "service_accounts": "POST /admin/users/create-service-account — org-scoped, auto API key, password rotation exempt",
+    "delegation": "POST /delegation/grant — scoped, time-limited act-on-behalf with delegated JWT tokens",
+    "oauth_grants": "authorization_code, refresh_token, client_credentials (all supported)",
+    "sso_saml": "Per-org SAML SP with JIT provisioning. Initiate + ACS callback endpoints per org slug.",
+    "forward_auth": "Traefik-compatible edge proxy decision endpoint at /forward-auth/",
+    "teams": "Within-org teams with nested hierarchy and permission inheritance",
+    "super_admin": "Time-limited privilege elevation with approval workflow and audit log",
+    "api_keys": "Full CRUD, org-scoped, permission-scoped at /api-keys/"
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "name": "auth-mesh-setup",
+  "description": "CLI toolkit for onboarding any service to the ab0t Auth Mesh. Handles service registration, OAuth clients, hosted login, end-user orgs, consumer registration, and provider setup.",
+  "version": "0.1.0",
+  "requires": ["curl", "jq", "bash"],
+
+  "entry_point": "./setup",
+  "entry_point_description": "Interactive CLI — run ./setup for menu, ./setup run for all steps, ./setup run 04 for a specific step.",
+
+  "workflows": {
+    "service_onboarding": {
+      "description": "Register your service with Auth Mesh. Steps 01-06 run in order.",
+      "steps": ["01", "02", "03", "04", "05", "06"],
+      "who": "Any service operator onboarding a new service"
+    },
+    "consume_other_services": {
+      "description": "Register as a consumer of upstream mesh services to get API keys for cross-service calls.",
+      "steps": ["07"],
+      "who": "Any service that needs to call other services' APIs",
+      "direction": "YOUR SERVICE → calls → PROVIDER SERVICES"
+    },
+    "provide_to_other_services": {
+      "description": "Open your service so other mesh services can self-register as consumers.",
+      "steps": ["08"],
+      "who": "Any service that wants to be consumed by other services",
+      "direction": "OTHER SERVICES → call → YOUR SERVICE"
+    }
+  },
+
+  "scripts": {
+    "setup": {
+      "path": "setup",
+      "intent": "Interactive CLI entry point. Shows menu, runs steps, checks status.",
+      "type": "cli"
+    },
+
+    "01-register-service-permissions": {
+      "path": "scripts/01-register-service-permissions.sh",
+      "intent": "Creates your service org, admin account, permission schema, and API key on the auth service.",
+      "config_input": "config/permissions.json",
+      "credential_output": "credentials/{service}.json",
+      "type": "setup-step"
+    },
+    "02-register-oauth-client": {
+      "path": "scripts/02-register-oauth-client.sh",
+      "intent": "Registers an OAuth 2.1 public client (PKCE) for your frontend app.",
+      "config_input": "config/oauth-client.json",
+      "credential_output": "credentials/oauth-client.json",
+      "type": "setup-step"
+    },
+    "03-setup-hosted-login": {
+      "path": "scripts/03-setup-hosted-login.sh",
+      "intent": "Configures the hosted login page — branding, registration settings, auth methods.",
+      "config_input": "config/hosted-login.json",
+      "credential_output": "credentials/hosted-login.json",
+      "type": "setup-step"
+    },
+    "04-setup-default-team": {
+      "path": "scripts/04-setup-default-team.sh",
+      "intent": "Creates the end-users org where humans self-register. Sets up the Default Users team with auto-join so new users get permissions immediately via Zanzibar.",
+      "config_input": ["config/permissions.json", "config/hosted-login.json"],
+      "credential_output": "credentials/end-users-org.json",
+      "type": "setup-step"
+    },
+    "05-verify-setup": {
+      "path": "scripts/05-verify-setup.sh",
+      "intent": "Health checks — verifies all orgs, teams, login config, and permissions are correctly configured.",
+      "type": "setup-step"
+    },
+    "06-test-end-user": {
+      "path": "scripts/06-test-end-user.sh",
+      "intent": "End-to-end test — registers a new user, verifies they auto-join the team and get permissions.",
+      "type": "setup-step"
+    },
+    "07-register-consumer": {
+      "path": "scripts/07-register-consumer.sh",
+      "intent": "YOU WANT TO CALL OTHER SERVICES' APIs. Iterates provider configs and registers your service as a consumer of each. Produces API keys for cross-service calls.",
+      "config_input": "scripts/service-client-setup/clients.d/*.json",
+      "credential_output": "credentials/{provider}-consumer.json",
+      "engine": "scripts/service-client-setup/register-as-client.sh",
+      "type": "setup-step"
+    },
+    "08-setup-api-consumers": {
+      "path": "scripts/08-setup-api-consumers.sh",
+      "intent": "YOU WANT OTHER SERVICES TO CALL YOUR APIs. Creates a consumer registration org with permission tier teams. After this, other services self-register with two API calls.",
+      "config_input": ["config/permissions.json", "config/api-consumers.json"],
+      "credential_output": "credentials/api-consumers.json",
+      "type": "setup-step"
+    }
+  },
+
+  "engines": {
+    "register-as-client": {
+      "path": "scripts/service-client-setup/register-as-client.sh",
+      "intent": "Co-located registration engine. Reads provider credential files from disk, logs in as provider admin, creates sub-org + service account + API key. Use when consumer and provider are on the same machine.",
+      "config_input": "scripts/service-client-setup/clients.d/{provider}.json",
+      "credential_output": "scripts/service-client-setup/credentials/{provider}-client.json",
+      "requires_provider_credentials": true
+    },
+    "consumer-register": {
+      "path": "scripts/service-client-setup/consumer-register.sh",
+      "intent": "Self-service registration engine. Consumer registers via org-scoped endpoint, auto-joins permission team, creates API key. Does NOT need provider credentials. Supports convention-based discovery or invitation files.",
+      "config_input": "invitation file OR provider name (convention)",
+      "credential_output": "scripts/service-client-setup/credentials/{provider}-client.json",
+      "requires_provider_credentials": false
+    },
+    "provider-accept-consumer": {
+      "path": "scripts/service-client-setup/provider-accept-consumer.sh",
+      "intent": "Provider-side setup for a specific consumer. Creates sub-org, approved-permissions team, auto-join config, and outputs an invitation file. The consumer uses consumer-register.sh with the invitation.",
+      "config_input": "scripts/service-client-setup/clients.d/{provider}.json",
+      "credential_output": "scripts/service-client-setup/invitations/{provider}-{consumer}.invitation.json",
+      "requires_provider_credentials": true
+    }
+  },
+
+  "config": {
+    "permissions.json": {
+      "path": "config/permissions.json",
+      "intent": "Defines your service's permission schema — actions, resources, default grants. Used by steps 01, 04, and 08.",
+      "example": "config/permissions.json.example",
+      "gitignored": true
+    },
+    "oauth-client.json": {
+      "path": "config/oauth-client.json",
+      "intent": "OAuth 2.1 client registration — redirect URIs, grant types, scopes. Used by step 02.",
+      "example": "config/oauth-client.json.example",
+      "gitignored": true
+    },
+    "hosted-login.json": {
+      "path": "config/hosted-login.json",
+      "intent": "Hosted login page branding and registration settings. Used by step 03.",
+      "example": "config/hosted-login.json.example",
+      "gitignored": true
+    },
+    "api-consumers.json": {
+      "path": "config/api-consumers.json",
+      "intent": "Consumer tier definitions — which permissions each tier grants. Used by step 08. Auto-generated from permissions.json if missing.",
+      "example": "config/api-consumers.json.example",
+      "gitignored": false
+    },
+    "clients.d/*.json": {
+      "path": "scripts/service-client-setup/clients.d/",
+      "intent": "Per-provider configs — declares which upstream service to consume and what permissions to request. One file per provider.",
+      "example": "scripts/service-client-setup/clients.d/example.json.example",
+      "gitignored": true
+    }
+  },
+
+  "credentials": {
+    "description": "Output files created by setup scripts. All gitignored — contain real secrets. Never commit these.",
+    "files": {
+      "{service}.json": "Step 01 output — service org, admin account, API key",
+      "oauth-client.json": "Step 02 output — OAuth client ID and registration token",
+      "hosted-login.json": "Step 03 output — hosted login config snapshot",
+      "end-users-org.json": "Step 04 output — end-users org ID, default team ID, login URL",
+      "{provider}-consumer.json": "Step 07 output — consumer API key for calling upstream provider",
+      "api-consumers.json": "Step 08 output — consumer org ID, tier team IDs, registration endpoint"
+    },
+    "gitignored": true
+  },
+
+  "schemas": {
+    "path": "schema/",
+    "intent": "JSON Schema definitions for all config and credential files. Used by validate-config.sh.",
+    "files": {
+      "permissions.schema.json": "Validates config/permissions.json",
+      "oauth-client.schema.json": "Validates config/oauth-client.json",
+      "hosted-login.schema.json": "Validates config/hosted-login.json",
+      "archetype.schema.json": "Validates config/archetypes/*.json",
+      "credentials-service.schema.json": "Validates credentials/{service}.json",
+      "credentials-oauth-client.schema.json": "Validates credentials/oauth-client.json",
+      "credentials-hosted-login.schema.json": "Validates credentials/hosted-login.json",
+      "credentials-end-users-org.schema.json": "Validates credentials/end-users-org.json"
+    }
+  },
+
+  "skills": {
+    "path": "Skills/",
+    "intent": "Claude Code skill definitions. Provide context to AI assistants working with this repo.",
+    "skills": {
+      "auth-mesh-setup": "How to onboard a service to Auth Mesh (steps 01-07)",
+      "mesh-service-accounts": "How to register as a consumer of other mesh services"
+    }
+  },
+
+  "tests": {
+    "note": "UJ tests live in the service repo, not in setup/. See sandbox-platform/scripts/curl_tests/user_journeys/",
+    "path": "../scripts/curl_tests/user_journeys/",
+    "intent": "Integration tests that verify the sandbox-platform API works end-to-end. Run against a live instance. Located in the service directory, not the setup CLI."
+  }
+}
