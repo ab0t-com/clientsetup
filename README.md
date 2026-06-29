@@ -118,9 +118,7 @@ clientsetup/
 ├── release/        # the prebuilt binaries (linux/darwin × amd64/arm64) + checksums.txt + VERSION
 ├── config/         # *.json.example schema references + archetypes/  (copy + edit these)
 ├── schema/         # JSON Schemas for every config + credential file
-├── scripts/        # the numbered bash kit (01-09) — still supported alongside the binary
-├── setup           # interactive CLI wrapper
-├── docs/           # USAGE (cookbook), MIGRATION (bash → binary), CLI (overview)
+├── docs/           # USAGE (cookbook), MIGRATION (from the old bash kit), CLI (overview)
 ├── skills/         # agent skills — authsetup-cli, auth-mesh-setup, mesh-service-accounts
 └── llms.txt        # bootstrap entrypoint for an AI agent
 ```
