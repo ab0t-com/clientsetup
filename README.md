@@ -43,11 +43,12 @@ PREFIX=$HOME/.local curl -fsSL .../install.sh | sh
 Or grab a binary directly from [`release/`](release/) (static, no runtime deps)
 and verify it against [`release/checksums.txt`](release/checksums.txt).
 
-> **Already used the old numbered bash scripts (`./setup`, `scripts/01-09`)?**
-> There's **nothing to migrate** — `authsetup` reads the same `config/` files and
-> reconciles your existing service in place (completed steps no-op). Install the
-> binary, point it at your existing config, and `run`. Full command mapping in
-> **[`docs/MIGRATION.md`](docs/MIGRATION.md)**.
+> **Coming from the old bash kit (`./setup`, `scripts/01-09`)?**
+> **Run `authsetup` from your existing service directory** (the one with both
+> `config/` and `credentials/`) — it adopts your existing org automatically, so you
+> never get a duplicate. From elsewhere, point it at your old creds first:
+> `authsetup --creds-dir ./credentials --config-dir ./config run`. Same `config/`
+> files, same reconcile model. Full guide in **[`docs/MIGRATION.md`](docs/MIGRATION.md)**.
 
 ## Quickstart
 

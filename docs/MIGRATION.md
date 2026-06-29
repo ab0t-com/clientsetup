@@ -11,6 +11,21 @@ dir migrates as-is. Credentials now land in `~/.authmesh/<service>/` (0600),
 outside any repo, with a redacted journal. authsetup saves are
 merge-preserving — it never drops keys it doesn't own.
 
+## Before your first run — you won't create a duplicate org
+
+`run 01` only creates a service org if it can't already find one. It finds your
+existing setup two ways:
+
+- **Run from your old service directory** (the one with both `config/` and
+  `credentials/`) — the binary auto-adopts the bash kit's
+  `./credentials/<service>.json`. This is the easy path: `cd` there and run.
+- **From anywhere else**, point it at your existing credentials once:
+  `authsetup --creds-dir ./credentials --config-dir ./config run`.
+
+If it can neither load cached creds nor adopt the legacy ones, it stops and tells
+you the service looks already set up (and how to adopt it) — it never silently
+creates a second org. The auth server's duplicate-slug rejection is the backstop.
+
 ## Command mapping
 
 Global flags (`--config-dir`, `--dry-run`) go BEFORE the subcommand.
