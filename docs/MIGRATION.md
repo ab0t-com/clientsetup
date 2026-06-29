@@ -11,20 +11,24 @@ dir migrates as-is. Credentials now land in `~/.authmesh/<service>/` (0600),
 outside any repo, with a redacted journal. authsetup saves are
 merge-preserving — it never drops keys it doesn't own.
 
-## Before your first run — you won't create a duplicate org
+## Migrate once, then forget it
 
-`run 01` only creates a service org if it can't already find one. It finds your
-existing setup two ways:
+The everyday `authsetup` commands look for credentials in `~/.authmesh/<service>/`,
+not the bash kit's repo-local `./credentials/`. So run the **one-time** import
+once, from the directory that holds your bash `./credentials/`:
 
-- **Run from your old service directory** (the one with both `config/` and
-  `credentials/`) — the binary auto-adopts the bash kit's
-  `./credentials/<service>.json`. This is the easy path: `cd` there and run.
-- **From anywhere else**, point it at your existing credentials once:
-  `authsetup --creds-dir ./credentials --config-dir ./config run`.
+```bash
+authsetup --config-dir ./config migrate
+```
 
-If it can neither load cached creds nor adopt the legacy ones, it stops and tells
-you the service looks already set up (and how to adopt it) — it never silently
-creates a second org. The auth server's duplicate-slug rejection is the backstop.
+It verifies the bash admin + org against the server, then copies the credentials
+into `~/.authmesh/<service>/`. After that `authsetup --config-dir ./config run`
+adopts your existing org (no duplicate) and you never touch migration again —
+delete `./credentials/` when you're confident.
+
+If you skip `migrate` and run anyway, `run 01` still won't silently duplicate: it
+adopts an existing org by slug, and if it can't it stops and tells you to run
+`migrate`. The auth server's duplicate-slug rejection is the final backstop.
 
 ## Command mapping
 

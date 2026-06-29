@@ -44,11 +44,10 @@ Or grab a binary directly from [`release/`](release/) (static, no runtime deps)
 and verify it against [`release/checksums.txt`](release/checksums.txt).
 
 > **Coming from the old bash kit (`./setup`, `scripts/01-09`)?**
-> **Run `authsetup` from your existing service directory** (the one with both
-> `config/` and `credentials/`) — it adopts your existing org automatically, so you
-> never get a duplicate. From elsewhere, point it at your old creds first:
-> `authsetup --creds-dir ./credentials --config-dir ./config run`. Same `config/`
-> files, same reconcile model. Full guide in **[`docs/MIGRATION.md`](docs/MIGRATION.md)**.
+> Run the **one-time** `authsetup --config-dir ./config migrate` from your existing
+> service directory — it imports your credentials into the binary's home so `run`
+> adopts your existing service org instead of creating a duplicate. Then use
+> `authsetup` normally. Full guide in **[`docs/MIGRATION.md`](docs/MIGRATION.md)**.
 
 ## Quickstart
 
