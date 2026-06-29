@@ -5,7 +5,7 @@
   "archetype": "self-service",
 
   "service": {
-    "id": "my-service",
+    "id": "myservice",
     "name": "My Service",
     "description": "Service description for admin UIs"
   },

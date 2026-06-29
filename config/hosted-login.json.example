@@ -22,10 +22,10 @@
     "collect_name": true
   },
   "security": {
-    "post_logout_redirect_uri": "https://my-service.example.com",
+    "post_logout_redirect_uri": "https://myservice.example.com",
     "remember_me_enabled": true,
-    "accept_invite_url": "https://my-service.example.com/welcome",
-    "accept_invite_error_url": "https://my-service.example.com/invite-error",
+    "accept_invite_url": "https://myservice.example.com/welcome",
+    "accept_invite_error_url": "https://myservice.example.com/invite-error",
     "accept_invite_allowed_origins": []
   }
 }

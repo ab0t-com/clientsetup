@@ -1,12 +1,12 @@
 # Registration Internals
 
-What `register-as-client.sh` does in each of its 8 steps, including the auth API calls made.
+What `authsetup --config-dir ./config run 07` does in each of its 8 steps, including the auth API calls made. Step 07 reconciles one consumer→provider relationship per `clients.d/<provider>.json` entry; it is re-runnable.
 
 ## Prerequisites
 
 - Auth service running and healthy
-- Provider has run `register-service-permissions.sh` (creates org, admin, permissions)
-- `jq` and `curl` available
+- Provider has been registered (org, admin, permissions exist) — i.e. the provider already ran `authsetup --config-dir ./config run` through its registration steps
+- A `clients.d/<provider>.json` file in the config dir describing the upstream provider
 
 ## Step-by-Step
 
@@ -19,7 +19,7 @@ Extracts:
 - `admin.password` — provider admin password
 - `organization.id` — provider org UUID
 
-If `PROVIDER_CREDS` env var is set, uses that path instead.
+By default the provider credentials are read from `~/.authmesh/<provider>/` (where the provider's own registration wrote them); `clients.d/<provider>.json` may point `provider.credentials_path` elsewhere to override.
 
 ### Step 2: Login as Provider Admin
 
@@ -151,7 +151,7 @@ The `key` field contains the full API key — this is the only time it's returne
 
 ### Step 8: Save Credentials
 
-Writes a JSON file to `credentials/<provider>-client.json`:
+Writes a JSON file to `~/.authmesh/<consumer>/<provider>-client.json` (mode `0600`, outside any repo) and appends a redacted entry to the journal:
 
 ```json
 {
@@ -188,13 +188,17 @@ Writes a JSON file to `credentials/<provider>-client.json`:
 - **Org membership**: silently skipped if already a member
 - **API key**: new key created each run (old keys remain valid)
 
-## The 07-register-consumer.sh Wrapper
+To change permissions on an existing relationship, edit `clients.d/<provider>.json` and run step 07 again — there is no separate update command; every run reconciles config (desired state) against auth.
 
-The wrapper script:
-1. Auto-discovers all `clients.d/*.json` files
-2. Runs `register-as-client.sh` for each provider
-3. Copies output to `credentials/<provider>-consumer.json`
-4. Prints API keys to set in `.env`
+## Step 07 Across All Providers
+
+When you run `authsetup --config-dir ./config run 07` (with no provider filter) the step:
+1. Auto-discovers all `clients.d/*.json` files in the config dir
+2. Reconciles the consumer→provider relationship for each provider (the 8 steps above)
+3. Writes each result to `~/.authmesh/<consumer>/<provider>-consumer.json`
+4. Prints the API keys to set in `.env`
 5. Reports PASS/FAIL summary
 
-Can target specific providers: `07-register-consumer.sh billing payment`
+## Step 08: API Consumers
+
+`authsetup --config-dir ./config run 08` is the companion step for wiring up inbound API consumers (the providers that will call *this* service). It reconciles consumer accounts the same way step 07 reconciles upstream providers; see the consumer-config docs for its `clients.d` shape.

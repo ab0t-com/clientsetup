@@ -10,7 +10,7 @@
   "archetype": "b2b-multi-tenant",
 
   "service": {
-    "id": "my-service",
+    "id": "myservice",
     "name": "My Service",
     "description": "A B2B multi-tenant SaaS platform"
   },
@@ -105,15 +105,15 @@
   },
 
   "_org_diagram": [
-    "Service Org (my-service)                    [level 0 — platform admin]",
-    "  ├── Customer A Org (my-service-acme)       [level 1 — isolated tenant]",
+    "Service Org (myservice)                    [level 0 — platform admin]",
+    "  ├── Customer A Org (myservice-acme)       [level 1 — isolated tenant]",
     "  │     ├── Alice (owner)",
     "  │     ├── Bob (admin)",
     "  │     └── Charlie (member)",
-    "  ├── Customer B Org (my-service-globex)     [level 1 — isolated tenant]",
+    "  ├── Customer B Org (myservice-globex)     [level 1 — isolated tenant]",
     "  │     ├── Dave (owner)",
     "  │     └── Eve (member)",
-    "  └── Customer C Org (my-service-initech)    [level 1 — isolated tenant]",
+    "  └── Customer C Org (myservice-initech)    [level 1 — isolated tenant]",
     "        └── Frank (owner)"
   ],
 

@@ -10,7 +10,7 @@
   "archetype": "departmental",
 
   "service": {
-    "id": "my-enterprise",
+    "id": "myenterprise",
     "name": "My Enterprise System",
     "description": "Internal enterprise system with departmental isolation"
   },
@@ -111,16 +111,16 @@
   },
 
   "_org_diagram": [
-    "Root Org (my-enterprise)                              [level 0 — global admin only]",
-    "  ├── Finance (my-enterprise-finance)                 [level 1 — hard wall]",
+    "Root Org (myenterprise)                              [level 0 — global admin only]",
+    "  ├── Finance (myenterprise-finance)                 [level 1 — hard wall]",
     "  │     ├── Alice (department_admin)",
     "  │     ├── Bob (approver)",
     "  │     └── Charlie (viewer)",
-    "  ├── Engineering (my-enterprise-engineering)          [level 1 — hard wall]",
+    "  ├── Engineering (myenterprise-engineering)          [level 1 — hard wall]",
     "  │     ├── Dave (department_admin)",
     "  │     ├── Eve (contributor)",
     "  │     └── Frank (contributor)",
-    "  └── HR (my-enterprise-hr)                           [level 1 — hard wall]",
+    "  └── HR (myenterprise-hr)                           [level 1 — hard wall]",
     "        ├── Grace (department_admin)",
     "        └── Heidi (viewer)"
   ],

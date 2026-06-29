@@ -64,7 +64,7 @@ For those services, set:
 The auth service's built-in event handler then materializes a private nested
 org for each new user on registration:
 
-    Service Org (your-service)
+    Service Org (yourservice)
       └── End-Users Org
             ├── Default Users team  (existing behavior preserved)
             └── alice's workspace   (settings.type = "user_workspace", owner = alice)
@@ -94,48 +94,52 @@ break when new patterns are added.
 
 WHAT'S IN HERE
 --------------
+release/                        The shipped tool — one static `authsetup` binary
+  authsetup-linux-amd64         Prebuilt binaries (no runtime deps)
+  authsetup-linux-arm64
+  authsetup-darwin-amd64
+  authsetup-darwin-arm64
+  checksums.txt                 SHA-256 checksums
+  VERSION                       Release version
+
+install.sh                      One-line installer (curl | sh) — fetches the right binary
+
 config/                         Input configuration (edit these)
-  permissions.json              Service permission schema
-  permissions.json.example      Schema reference with all fields
-  oauth-client.json             OAuth client config
-  oauth-client.json.example     Schema reference
-  hosted-login.json             Login page branding and registration rules
-  hosted-login.json.example     Schema reference
+  permissions.json.example      Service permission schema reference
+  oauth-client.json.example     OAuth client config reference
+  hosted-login.json.example     Login page branding / registration rules reference
+  org-structure.json.example    End-users org structure (flat / workspace-per-user)
+  api-consumers.json.example    API consumers reference
+  archetypes/                   Per-service-type config presets
+  clients.d/                    One JSON per upstream provider you consume
 
-scripts/                        Numbered, idempotent setup scripts
-  01-register-service-permissions.sh   Register service org + permissions + API key
-  02-register-oauth-client.sh          Register OAuth 2.1 client for frontend
-  03-setup-hosted-login.sh             Configure hosted login page
-  04-setup-end-users-org.sh            Create end-users child org (this is the key step)
-  05-verify-setup.sh                   Verify everything is wired up
+schema/                         JSON Schemas for every config + credential file
+docs/                           Client-facing docs (USAGE.md, CLI.md, MIGRATION.md)
+skills/                         Agent skills (auth-mesh-setup, authsetup-cli, …)
+llms.txt                        Machine-readable orientation for coding agents
 
-credentials/                    Output (generated, gitignored)
-  {service}.json                Service org, admin creds, API key
-  service.json.example          Output schema reference
-  oauth-client.json             OAuth client_id, registration token
-  oauth-client.json.example     Output schema reference
-  hosted-login.json             Applied config + verification
-  hosted-login.json.example     Output schema reference
-  end-users-org.json            End-users org, login URL, permission list
-  end-users-org.json.example    Output schema reference
-
-setup                           CLI entry point (interactive or batch)
-README.md                       Client-facing documentation
 INTENT.txt                      This file
+README.md                       Client-facing documentation
+
+Credentials are NOT written into this directory. Every command writes generated
+secrets (service org + admin creds + API key, OAuth client_id, end-users org,
+login URL) to ~/.authmesh/<service>/ (mode 0600), outside any repo, alongside a
+redacted journal. The `credentials/*.example` files here are schema references
+for those outputs only.
 
 
 DESIGN PRINCIPLES
 -----------------
 ZERO-CONFIG:    Users get permissions from org membership, not per-user grants
 ZERO-MAINTENANCE: No cron, no callbacks, no middleware — it just works
-IDEMPOTENT:     Every script can be run multiple times safely
-ORDERED:        Scripts are numbered; each may depend on outputs from prior steps
-SELF-CONTAINED: Only requires curl, jq, python3, and bash
+IDEMPOTENT:     Every command reconciles config against live state; safe to re-run
+ORDERED:        Steps are numbered (run 01 … run 08); each may depend on prior outputs
+SELF-CONTAINED: One static binary — `curl` to install; no runtime deps (no jq/python/bash)
 ENVIRONMENT-AWARE: AUTH_SERVICE_URL switches between prod/dev/local
 CONFIG-DRIVEN:  All service-specific values live in config/ JSON files
-CREDENTIALS-SEPARATE: Secrets go to credentials/ (gitignored, never committed)
-SCHEMA-DOCUMENTED: .example files show exact input/output contracts
-STANDARD:       Same scripts work for ANY service — just change the config
+CREDENTIALS-SEPARATE: Secrets go to ~/.authmesh/<service>/ (0600, outside any repo)
+SCHEMA-DOCUMENTED: .example files + schema/ show exact input/output contracts
+STANDARD:       Same binary works for ANY service — just change the config
 
 
 CONTACT

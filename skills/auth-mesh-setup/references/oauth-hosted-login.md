@@ -107,7 +107,7 @@ Smart-default behavior (step 03):
 - `accept_invite_allowed_origins` — IF empty/missing in user config, derived from `oauth-client.json` redirect_uris. Those origins are already trusted for OAuth callbacks; reusing them mirrors the existing trust boundary.
 - `accept_invite_url` / `accept_invite_error_url` — NEVER smart-defaulted. Customer-specific UX decisions; a wrong default would silently misroute invitees. Leave unset to use the bundled fallback page.
 
-Pre-flight check (step 03 + `validate-config.sh`): warns when a configured URL's origin isn't in the allowlist (auth would reject the PUT with HTTP 400; warning catches it before the network round-trip).
+Pre-flight check (step 03 + `authsetup --config-dir ./config validate`): warns when a configured URL's origin isn't in the allowlist (auth would reject the PUT with HTTP 400; warning catches it before the network round-trip).
 
 Allowlist rules (mirrors OAuth `redirect_uris`):
 - Each entry is `scheme://host[:port]` — no path, no trailing slash.

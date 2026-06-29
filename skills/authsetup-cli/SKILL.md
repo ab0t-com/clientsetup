@@ -5,9 +5,15 @@ description: Operate the authsetup CLI (setup-go) — the Auth Mesh client onboa
 
 # authsetup — Auth Mesh client setup CLI
 
-One static binary (`setup-go/bin/authsetup`, release artifacts in
-`setup-go/release/`) that onboards a service to the Auth Mesh and keeps it
-converged with its config. Replaces bash scripts 01–09.
+One static binary (`authsetup`) that onboards a service to the Auth Mesh and
+keeps it converged with its config. Replaces bash scripts 01–09.
+
+Install (no build step):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ab0t-com/clientsetup/main/install.sh | sh
+# or grab a prebuilt binary from the repo's release/ directory
+```
 
 ## Mental model (read this first)
 
@@ -25,12 +31,11 @@ edit config/*.json ──► validate ──► run (--dry-run first) ──► 
 ## Quick start (new service)
 
 ```bash
-cd setup-go && ./build.sh --local          # or use a release/ artifact
 export AUTH_SERVICE_URL=https://auth.dev.ab0t.com   # omit for prod
-./bin/authsetup --config-dir ../config validate
-./bin/authsetup --config-dir ../config --dry-run run   # plan, mutates nothing
-./bin/authsetup --config-dir ../config run             # apply
-./bin/authsetup --config-dir ../config run 06          # e2e proof (throwaway user)
+authsetup --config-dir ./config validate
+authsetup --config-dir ./config --dry-run run   # plan, mutates nothing
+authsetup --config-dir ./config run             # apply
+authsetup --config-dir ./config run 06          # e2e proof (throwaway user)
 ```
 
 Result: service org, permission schema, OAuth client(s), hosted login,
@@ -116,8 +121,8 @@ fresh key (revoke the old one after rollover).
 - **[control-surface.md](references/control-surface.md)** — full command/flag
   matrix, every config field, credential file shapes, exit codes, state
   machine table. Read when you need an exact flag or file shape.
-- Repo docs: `setup-go/README.md` (overview), `setup-go/docs/USAGE.md`
-  (scenario cookbook), `setup-go/docs/MIGRATION.md` (bash → Go mapping).
+- Repo docs (github.com/ab0t-com/clientsetup): `README.md` (overview),
+  `docs/USAGE.md` (scenario cookbook), `docs/MIGRATION.md` (bash → Go mapping).
 
 ## Troubleshooting fast-path
 

@@ -43,6 +43,12 @@ PREFIX=$HOME/.local curl -fsSL .../install.sh | sh
 Or grab a binary directly from [`release/`](release/) (static, no runtime deps)
 and verify it against [`release/checksums.txt`](release/checksums.txt).
 
+> **Already used the old numbered bash scripts (`./setup`, `scripts/01-09`)?**
+> There's **nothing to migrate** — `authsetup` reads the same `config/` files and
+> reconciles your existing service in place (completed steps no-op). Install the
+> binary, point it at your existing config, and `run`. Full command mapping in
+> **[`docs/MIGRATION.md`](docs/MIGRATION.md)**.
+
 ## Quickstart
 
 ```sh

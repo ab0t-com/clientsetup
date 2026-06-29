@@ -1,20 +1,21 @@
 ---
 name: auth-mesh-setup
-description: Onboard any service to the ab0t Auth Mesh using the setup CLI and numbered scripts (01-08). Use when registering a new service with auth, designing a permissions.json schema, configuring OAuth clients, setting up hosted login pages, creating end-users orgs with team-based permission inheritance, choosing an org_structure pattern (flat vs workspace-per-user), running or debugging setup scripts, understanding the Zanzibar permission model, verifying setup health, troubleshooting registration failures, setting up consumer/provider mesh registration, or adapting the setup system for a new service. Covers the full onboarding lifecycle from config file creation through permission design, org creation, OAuth registration, hosted login branding, default team setup, org structure selection, verification, consumer registration, and provider setup.
+description: Onboard any service to the ab0t Auth Mesh using the authsetup binary. Use when registering a new service with auth, designing a permissions.json schema, configuring OAuth clients, setting up hosted login pages, creating end-users orgs with team-based permission inheritance, choosing an org_structure pattern (flat vs workspace-per-user), running or debugging the authsetup steps, understanding the Zanzibar permission model, verifying setup health, troubleshooting registration failures, setting up consumer/provider mesh registration, or adapting the setup system for a new service. Covers the full onboarding lifecycle from config file creation through permission design, org creation, OAuth registration, hosted login branding, default team setup, org structure selection, verification, consumer registration, and provider setup.
 ---
 
 # Auth Mesh Setup
 
-Onboard any service to Auth Mesh using the setup CLI. The system is config-driven, idempotent, and environment-aware.
+Onboard any service to Auth Mesh using the `authsetup` binary. The system is config-driven, idempotent, and environment-aware. Every command reconciles `config/*.json` (desired state) against auth — there is no `update` command; edit config and `run` again.
 
 ## Step-by-Step: Onboarding a New Service
 
-### 1. Clone the setup CLI into your project
+### 1. Install the `authsetup` binary
 
 ```bash
-git clone https://github.com/ab0t-com/clientsetup.git setup
-cd setup
+curl -fsSL https://raw.githubusercontent.com/ab0t-com/clientsetup/main/install.sh | sh
 ```
+
+This installs a single static binary, `authsetup`. (A prebuilt binary from the repo's `release/` directory works too.) Create a `config/` directory next to it to hold your JSON config; example configs live in the repo's `config/`.
 
 ### 2. Create `config/permissions.json`
 
@@ -30,10 +31,10 @@ Edit it — you MUST change these sections:
 ```json
 {
   "service": {
-    "id": "your-service",           // lowercase, hyphens ok. Used in org slugs, API keys, permission IDs
+    "id": "myservice",           // lowercase, NO hyphens (underscores ok), server rule ^[a-z][a-z0-9_]*$. Used in org slugs, API keys, permission IDs
     "name": "Your Service",         // human-readable
     "description": "What your service does",
-    "audience": "your-service",     // JWT audience claim — usually same as service.id
+    "audience": "myservice",     // JWT audience claim — usually same as service.id
     "maintainer": "team@yourcompany.com"
   }
 }
@@ -43,7 +44,7 @@ Edit it — you MUST change these sections:
 ```json
 {
   "registration": {
-    "service": "your-service",                              // permission prefix
+    "service": "myservice",                              // permission prefix
     "actions": ["read", "write", "create", "delete", "admin"],  // verbs
     "resources": ["items", "reports", "settings"]               // nouns
   }
@@ -55,16 +56,16 @@ Edit it — you MUST change these sections:
 {
   "permissions": [
     {
-      "id": "your-service.read.items",     // format: {service}.{action}.{resource}
+      "id": "myservice.read.items",     // format: {service}.{action}.{resource}
       "name": "Read Items",
       "description": "View items",
       "default_grant": true                // true = every user gets this automatically
     },
     {
-      "id": "your-service.admin",
+      "id": "myservice.admin",
       "name": "Admin",
       "default_grant": false,              // false = must be granted explicitly
-      "implies": ["your-service.read.items", "your-service.write.items"]
+      "implies": ["myservice.read.items", "myservice.write.items"]
     }
   ]
 }
@@ -79,9 +80,9 @@ Rules for `default_grant`:
 {
   "roles": [
     {
-      "id": "your-service-user",
+      "id": "myservice-user",
       "name": "User",
-      "permissions": ["your-service.read.items", "your-service.write.items"],
+      "permissions": ["myservice.read.items", "myservice.write.items"],
       "default": true    // new users get this role
     }
   ]
@@ -113,11 +114,15 @@ Change:
 
 ### 5. Run the setup
 
+Validate config, preview, then apply:
+
 ```bash
-./setup run
+authsetup --config-dir ./config validate
+AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir ./config --dry-run run
+authsetup --config-dir ./config run
 ```
 
-This runs steps 01-06:
+Global flags (`--config-dir`, `--dry-run`) go BEFORE the subcommand. `run` executes steps 01-06:
 
 | Step | What happens | Config input | Credential output |
 |------|---|---|---|
@@ -132,7 +137,7 @@ All idempotent. Safe to re-run.
 
 ### 6. Wire credentials into your app
 
-After setup, `credentials/` has all the output. These are gitignored — never commit them.
+After setup, credentials live in `~/.authmesh/<service>/` (mode 0600, outside any repo, with a redacted journal). Never commit them.
 
 **Frontend:** use `org_slug` from `end-users-org.json` + `client_id` from `oauth-client.json`
 **Backend:** use `api_key.key` + `service_audience` from `{service}.json`
@@ -142,10 +147,9 @@ After setup, `credentials/` has all the output. These are gitignored — never c
 If your service calls other services' APIs:
 
 ```bash
-cp scripts/service-client-setup/clients.d/example.json.example \
-   scripts/service-client-setup/clients.d/billing.json
-# Edit clients.d/billing.json
-./setup run 07
+# Drop a clients.d/<provider>.json into your config dir, then run step 07
+# e.g. config/clients.d/billing.json — provider details + permissions you need
+authsetup --config-dir ./config run 07
 ```
 
 ### 8. (Optional) Let other services consume yours
@@ -154,7 +158,7 @@ If other mesh services need to call YOUR APIs:
 
 ```bash
 # Auto-generates config from permissions.json if config/api-consumers.json doesn't exist
-./setup run 08
+authsetup --config-dir ./config run 08
 ```
 
 After this, other services self-register with two API calls.
@@ -162,11 +166,11 @@ After this, other services self-register with two API calls.
 ## Architecture
 
 ```
-Service Org (your-service)              <- step 01
+Service Org (myservice)              <- step 01
 +-- admin account + API key
 +-- permission schema registered
 |
-+-- End-Users Org (your-service-users)  <- step 04
++-- End-Users Org (myservice-users)  <- step 04
 |   +-- Default Team                    <- holds default_grant permissions
 |   |   +-- new users auto-join
 |   +-- User A (member -> team -> permissions)
@@ -234,7 +238,7 @@ After setup, every new signup gets:
 ### What the client gets
 
 ```
-End-Users Org (your-service-users)
+End-Users Org (myservice-users)
   ├── Default Users team        (existing)
   ├── alice's workspace         (new — settings.type = "user_workspace", owner = alice)
   │     └── Default team        (with default_grant perms)
@@ -279,14 +283,18 @@ what to materialize.
 
 ## CLI Usage
 
+Global flags (`--config-dir`, `--dry-run`) go BEFORE the subcommand.
+
 ```bash
-./setup              # Interactive menu
-./setup run          # Run all pending steps
-./setup run 04       # Run specific step
-./setup status       # Show progress
-./setup verify       # Run checks (step 05)
-./setup dry-run      # Preview without changes
+authsetup --config-dir ./config validate           # Validate config without calling auth
+authsetup --config-dir ./config run                # Run all pending steps
+authsetup --config-dir ./config run 04             # Run a specific step
+authsetup --config-dir ./config status             # Read-only health/progress check (replaces "verify")
+authsetup --config-dir ./config --dry-run run      # Preview without changes
+authsetup --config-dir ./config backfill           # Reconcile/backfill existing state
 ```
+
+Every command reconciles desired state and is re-runnable. There is no `update` command — edit `config/*.json` and `run` again.
 
 Environment: `AUTH_SERVICE_URL=https://auth.service.ab0t.com` (default). Set to `http://localhost:8001` for local dev.
 

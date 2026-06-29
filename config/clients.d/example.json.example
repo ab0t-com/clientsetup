@@ -6,11 +6,11 @@
         "service_url": "http://localhost:PORT"
     },
     "client": {
-        "service_id": "your-service",
+        "service_id": "yourservice",
         "service_name": "Your Service Name",
         "customer_org_name": "Your Service - Provider Customer",
-        "customer_org_slug": "provider-customer-your-service",
-        "service_account_email": "your-service@provider.customers",
+        "customer_org_slug": "provider-customer-yourservice",
+        "service_account_email": "yourservice@provider.customers",
         "service_account_password": "CHANGE_ME_strong_password"
     },
     "permissions": [
@@ -20,7 +20,7 @@
         "provider.cross_tenant"
     ],
     "api_key": {
-        "name": "your-service-provider-backend",
+        "name": "yourservice-provider-backend",
         "rate_limit": 10000,
         "metadata_purpose": "Backend API access for Your Service to proxy provider data on behalf of authenticated users"
     }

@@ -19,13 +19,13 @@ Currently co-located on a single server, designed to be distributed.
 
 ## Service Registration
 
-Each service registers with auth via `register-service-permissions.sh`:
+Each service registers with auth via `authsetup --config-dir ./config run 01`:
 
 1. Creates a **service org** (e.g., `billing` org `7552d363...`)
 2. Creates an **admin account** (e.g., `mike+billing@ab0t.com`)
 3. Registers **permissions** (e.g., `billing.read`, `billing.write.*`)
 4. Gets a **service API key** for server-to-auth calls
-5. Saves credentials to `credentials/<service>.json`
+5. Saves credentials to `~/.authmesh/<service-id>/` (0600, outside any repo)
 
 Some services also create an **end-users org** (child of service org) for user self-registration.
 

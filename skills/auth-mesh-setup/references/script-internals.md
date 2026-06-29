@@ -1,13 +1,13 @@
-# Script Internals
+# Step Internals
 
-What each numbered script does, the auth API endpoints it calls, and non-obvious behavior.
+What each numbered step does, the auth API endpoints it calls, and non-obvious behavior. Each step is a phase of the `authsetup` binary — run them all with `authsetup --config-dir ./config run`, or a single step with `authsetup --config-dir ./config run 0X`. (These steps were formerly individual bash scripts; the API flows below are unchanged.)
 
-## 01 — register-service-permissions.sh
+## Step 01 — `authsetup --config-dir ./config run 01` (register-service-permissions)
 
 **Purpose:** Create service org, register permission schema, create admin account and API key.
 
 **Reads:** `config/permissions.json`
-**Outputs:** `credentials/{service_id}.json` (or `-dev.json` for local auth)
+**Outputs:** `~/.authmesh/<service-id>/{service_id}.json` (or `{service_id}-dev.json` for local auth)
 
 **API Flow:**
 
@@ -28,12 +28,12 @@ What each numbered script does, the auth API endpoints it calls, and non-obvious
 - Validates cached org_id still exists on server before reusing (`GET /organizations/{org_id}`)
 - `implies` permissions are granted to admin via `POST /permissions/grant` for each implied permission
 
-## 02 — register-oauth-client.sh
+## Step 02 — `authsetup --config-dir ./config run 02` (register-oauth-client)
 
 **Purpose:** Register OAuth 2.1 public client for frontend PKCE flow.
 
-**Reads:** `config/oauth-client.json`, `credentials/{service_id}.json`
-**Outputs:** `credentials/oauth-client.json`
+**Reads:** `config/oauth-client.json`, `~/.authmesh/<service-id>/{service_id}.json`
+**Outputs:** `~/.authmesh/<service-id>/oauth-client.json` (or `oauth-client-dev.json` for local auth)
 
 **API Flow:**
 
@@ -45,17 +45,17 @@ What each numbered script does, the auth API endpoints it calls, and non-obvious
 ```
 
 **Gotchas:**
-- Interactive mode prompts (U)pdate/(N)ew/(Q)uit if client exists. Non-interactive auto-updates
+- Reconciles: if the client already exists it is updated in place (RFC 7592 PUT), not recreated — `run` is re-runnable
 - Update requires `registration_access_token` and `registration_client_uri` from previous registration
 - New registration creates a separate client (old one stays valid)
 - Output includes `registration_access_token` — save this for future updates
 
-## 03 — setup-hosted-login.sh
+## Step 03 — `authsetup --config-dir ./config run 03` (setup-hosted-login)
 
 **Purpose:** Configure login page branding, auth methods, and registration settings.
 
-**Reads:** `config/hosted-login.json`, `credentials/{service_id}.json`, `config/oauth-client.json` (for smart default)
-**Outputs:** `credentials/hosted-login.json`
+**Reads:** `config/hosted-login.json`, `~/.authmesh/<service-id>/{service_id}.json`, `config/oauth-client.json` (for smart default)
+**Outputs:** `~/.authmesh/<service-id>/hosted-login.json` (or `hosted-login-dev.json` for local auth)
 
 **API Flow:**
 
@@ -69,22 +69,22 @@ What each numbered script does, the auth API endpoints it calls, and non-obvious
 ```
 
 **Smart default (PART3 — invitation-link landing):**
-If `security.accept_invite_allowed_origins` is empty/missing, the script derives it from `oauth-client.json` redirect_uris (extracts unique `scheme://host` origins). Those origins are already trusted for OAuth callbacks; reusing them mirrors the existing trust boundary. The script prints which origins were filled. `accept_invite_url` and `accept_invite_error_url` are NEVER smart-defaulted — those are customer-specific UX decisions.
+If `security.accept_invite_allowed_origins` is empty/missing, the step derives it from `oauth-client.json` redirect_uris (extracts unique `scheme://host` origins). Those origins are already trusted for OAuth callbacks; reusing them mirrors the existing trust boundary. The step prints which origins were filled. `accept_invite_url` and `accept_invite_error_url` are NEVER smart-defaulted — those are customer-specific UX decisions.
 
-**Pre-flight check:** When `accept_invite_url` / `accept_invite_error_url` is configured but its origin isn't in the (resolved) allowlist, the script prints a YELLOW warning pointing at the right config line. The auth service would otherwise reject the PUT with HTTP 400 — the warning catches it before the network round-trip.
+**Pre-flight check:** When `accept_invite_url` / `accept_invite_error_url` is configured but its origin isn't in the (resolved) allowlist, the step prints a warning pointing at the right config line. The auth service would otherwise reject the PUT with HTTP 400 — the warning catches it before the network round-trip.
 
 **Gotchas:**
 - `PUT` replaces the entire login config — not a merge/patch
 - Verification HTTP codes are stored in output file for debugging
 - Login page is immediately available after PUT
-- The smart-default origin extraction uses `jq capture("^(?<o>[^/]+//[^/]+)")` wrapped in `try … catch empty`. IPv6 hosts inside brackets capture cleanly; entries that don't match the regex (no scheme, malformed) are silently skipped instead of aborting the whole map under `set -e`. Outer `|| echo '[]'` handles unexpected jq failure (file unreadable etc).
+- The smart-default origin extraction parses each redirect_uri into a `scheme://host` origin. IPv6 hosts inside brackets are handled cleanly; entries that don't match (no scheme, malformed) are silently skipped rather than aborting the whole step.
 
-## 04 — setup-default-team.sh
+## Step 04 — `authsetup --config-dir ./config run 04` (setup-default-team)
 
-**Purpose:** Create end-users child org with default team for team-based permission inheritance. This is the most complex script.
+**Purpose:** Create end-users child org with default team for team-based permission inheritance. This is the most complex step.
 
-**Reads:** `config/permissions.json`, `config/hosted-login.json`, `credentials/{service_id}.json`
-**Outputs:** `credentials/end-users-org.json`
+**Reads:** `config/permissions.json`, `config/hosted-login.json`, `~/.authmesh/<service-id>/{service_id}.json`
+**Outputs:** `~/.authmesh/<service-id>/end-users-org.json` (or `end-users-org-dev.json` for local auth)
 
 **API Flow:**
 
@@ -107,28 +107,27 @@ If `security.accept_invite_allowed_origins` is empty/missing, the script derives
 - Default team permissions = all permissions where `default_grant: true` in permissions.json
 - Permission schema must be registered on BOTH service org (step 01) AND end-users org (step 04) — needed for `/permissions/user/{user_id}` queries
 - Login config `default_role` must be `"member"` (not `"end_user"`) — role assignment triggers team auto-join
-- Login config `default_team` is injected by this script — don't set it manually in hosted-login.json
-- Team creation failure is non-fatal — script continues with login config
+- Login config `default_team` is injected by this step — don't set it manually in hosted-login.json
+- Team creation failure is non-fatal — the step continues with login config
 - OAuth client on end-users org is separate from service org client (step 02)
 - End-users org slug convention: `{service_id}-users`
 
-## 05 — verify-setup.sh
+## Step 05 — `authsetup --config-dir ./config status` (verify-setup)
 
-**Purpose:** Comprehensive verification of all setup steps.
+**Purpose:** Comprehensive, read-only verification of all setup steps. This is the binary's `status` command (it replaces the old "verify"); it can also be run as `authsetup --config-dir ./config run 05`.
 
 **Checks:**
-1. Prerequisites (jq, curl, python3)
-2. Config files exist and have valid JSON + required fields
-3. Credential files exist with required fields
-4. Org hierarchy: end-users org parent_id matches service org_id
-5. Auth service health endpoint
-6. Hosted login endpoints return 200
-7. Admin can authenticate and list org members
-8. Permission model: default_role = "member"
+1. Config files exist and have valid JSON + required fields
+2. Credential files exist with required fields
+3. Org hierarchy: end-users org parent_id matches service org_id
+4. Auth service health endpoint
+5. Hosted login endpoints return 200
+6. Admin can authenticate and list org members
+7. Permission model: default_role = "member"
 
 **Exit code:** 0 if no FAILs, 1 if any FAIL
 
-## 06 — test-end-user.sh
+## Step 06 — `authsetup --config-dir ./config run 06` (test-end-user)
 
 **Purpose:** End-to-end proof that a new user gets the right permissions.
 
@@ -142,31 +141,31 @@ If `security.accept_invite_allowed_origins` is empty/missing, the script derives
 
 **Non-destructive:** Uses unique email each run, no cleanup needed.
 
-## 07 — register-consumer.sh
+## Step 07 — `authsetup --config-dir ./config run 07` (register-consumer)
 
-**Purpose:** Register as a consumer of upstream mesh services (billing, payment, etc.).
+**Purpose:** Register as a consumer of upstream mesh services (billing, payment, etc.). Drop a `clients.d/<provider>.json` into the config dir, then run step 07.
 
-**Reads:** `scripts/service-client-setup/clients.d/*.json`
-**Outputs:** `credentials/{provider}-consumer.json`
+**Reads:** `config/clients.d/*.json`
+**Outputs:** `~/.authmesh/<service-id>/{provider}-consumer.json` (or `{provider}-consumer-dev.json` for local auth)
 
 **Process:**
-1. Auto-discovers `clients.d/*.json` files (or uses CLI args)
-2. Runs `register-as-client.sh` for each provider
-3. Copies output to `credentials/` with `-consumer` suffix
+1. Auto-discovers `clients.d/*.json` files in the config dir (or uses CLI args)
+2. Reconciles each provider's consumer registration
+3. Writes output to `~/.authmesh/<service-id>/` with `-consumer` suffix
 4. Prints API key env vars to set
 
 See the `mesh-service-accounts` skill for detailed coverage of step 07 and the consumer registration pattern.
 
 ## Environment Detection
 
-All scripts auto-detect dev vs prod:
+Every step auto-detects dev vs prod:
 - If `AUTH_SERVICE_URL` contains `localhost` or `dev.ab0t.com` → use `-dev` suffix for credential files
 - Credential file lookup: try `{service_id}-dev.json` first, fall back to `{service_id}.json`
 - This allows targeting multiple environments from the same directory
 
 ## Execution Order
 
-Scripts must run in order (each depends on the previous):
+`authsetup --config-dir ./config run` runs every step in order; a single `run 0X` requires the earlier steps' credentials to already exist. Each step depends on the previous:
 ```
 01 (org + permissions)  →  standalone
 02 (OAuth client)       →  requires 01 credentials

@@ -1,21 +1,21 @@
 {
   "$schema": "https://auth.service.ab0t.com/schemas/permissions/v2",
   "service": {
-    "id": "my-service",
+    "id": "myservice",
     "name": "My Service",
     "description": "What this service does",
     "version": "1.0.0",
-    "audience": "my-service",
+    "audience": "myservice",
     "maintainer": "team@example.com"
   },
   "registration": {
-    "service": "my-service",
+    "service": "myservice",
     "actions": ["read", "write", "create", "delete", "execute", "admin"],
     "resources": ["items", "settings", "reports"]
   },
   "permissions": [
     {
-      "id": "my-service.read.items",
+      "id": "myservice.read.items",
       "name": "Read Items",
       "description": "View items in the catalog",
       "risk_level": "low",
@@ -23,7 +23,7 @@
       "default_grant": true
     },
     {
-      "id": "my-service.write.items",
+      "id": "myservice.write.items",
       "name": "Write Items",
       "description": "Create and update items",
       "risk_level": "medium",
@@ -31,7 +31,7 @@
       "default_grant": true
     },
     {
-      "id": "my-service.delete.items",
+      "id": "myservice.delete.items",
       "name": "Delete Items",
       "description": "Remove items permanently",
       "risk_level": "high",
@@ -39,7 +39,7 @@
       "default_grant": true
     },
     {
-      "id": "my-service.read.reports",
+      "id": "myservice.read.reports",
       "name": "Read Reports",
       "description": "View analytics and reports",
       "risk_level": "low",
@@ -47,39 +47,39 @@
       "default_grant": true
     },
     {
-      "id": "my-service.admin",
+      "id": "myservice.admin",
       "name": "Administrator",
       "description": "Full administrative access to all resources",
       "risk_level": "critical",
       "cost_impact": true,
       "default_grant": false,
       "implies": [
-        "my-service.read.items",
-        "my-service.write.items",
-        "my-service.delete.items",
-        "my-service.read.reports"
+        "myservice.read.items",
+        "myservice.write.items",
+        "myservice.delete.items",
+        "myservice.read.reports"
       ]
     }
   ],
   "roles": [
     {
-      "id": "my-service-user",
+      "id": "myservice-user",
       "name": "User",
       "description": "Standard user with default access",
       "permissions": [
-        "my-service.read.items",
-        "my-service.write.items",
-        "my-service.delete.items",
-        "my-service.read.reports"
+        "myservice.read.items",
+        "myservice.write.items",
+        "myservice.delete.items",
+        "myservice.read.reports"
       ],
       "default": true
     },
     {
-      "id": "my-service-admin",
+      "id": "myservice-admin",
       "name": "Administrator",
       "description": "Full admin access",
       "permissions": [
-        "my-service.admin"
+        "myservice.admin"
       ],
       "default": false
     }
@@ -91,7 +91,7 @@
   },
   "end_users": {
     "auto_provision": true,
-    "default_role": "my-service-user",
+    "default_role": "myservice-user",
     "org_structure": {
       "pattern": "flat",
       "config": {}

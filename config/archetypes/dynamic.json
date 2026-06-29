@@ -11,7 +11,7 @@
   "archetype": "dynamic",
 
   "service": {
-    "id": "my-platform",
+    "id": "myplatform",
     "name": "My Platform",
     "description": "A platform with dynamic, programmatic org creation"
   },
@@ -108,13 +108,13 @@
   },
 
   "_org_diagram": [
-    "Platform Org (my-platform)                        [level 0 — API keys, automation]",
-    "  ├── Instance abc123 (my-platform-abc123)         [level 1 — dynamic, TTL: 24h]",
+    "Platform Org (myplatform)                        [level 0 — API keys, automation]",
+    "  ├── Instance abc123 (myplatform-abc123)         [level 1 — dynamic, TTL: 24h]",
     "  │     ├── Agent-007 (member)",
     "  │     └── User-Alice (member)",
-    "  ├── Instance def456 (my-platform-def456)         [level 1 — dynamic, TTL: 1h]",
+    "  ├── Instance def456 (myplatform-def456)         [level 1 — dynamic, TTL: 1h]",
     "  │     └── CI-Bot (member)",
-    "  └── Instance ghi789 (my-platform-ghi789)         [level 1 — dynamic, expired → cleaned up]",
+    "  └── Instance ghi789 (myplatform-ghi789)         [level 1 — dynamic, expired → cleaned up]",
     "        (deleted)"
   ],
 

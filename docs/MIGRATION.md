@@ -1,24 +1,31 @@
-# Migration: bash kit → setup-go
+# Migration: from the old bash kit
 
-**Audience:** operators currently using the numbered bash scripts.
-**Interop guarantee:** both toolchains read and write the same `config/` and
-`credentials/` files (same names, shapes, env-suffix rules). You can switch
-per-step, in either direction, at any time. setup-go saves are
+**Audience:** operators coming from an old checkout of the numbered bash scripts
+(`./setup` + `scripts/0X-*.sh`). Those scripts no longer ship in the public
+`clientsetup` repo — the single static `authsetup` binary is now the only tool.
+This guide maps the old commands to their binary equivalents so you can carry an
+existing checkout forward.
+**File compatibility:** `authsetup` reads and writes the same `config/` files
+(same names, shapes, env-suffix rules) the bash kit used, so an existing config
+dir migrates as-is. Credentials now land in `~/.authmesh/<service>/` (0600),
+outside any repo, with a redacted journal. authsetup saves are
 merge-preserving — it never drops keys it doesn't own.
 
 ## Command mapping
 
+Global flags (`--config-dir`, `--dry-run`) go BEFORE the subcommand.
+
 | You ran (bash) | You run (Go) | Parity notes |
 |---|---|---|
-| `./setup run` | `authsetup run` | Go gates on validation; bash didn't |
-| `./setup run 04` | `authsetup run 04` | Go syncs team perms every run (bash needed `SYNC_EXISTING=1`) |
-| `DRY_RUN=1 ./scripts/04-…` | `authsetup --dry-run run 04` | Go dry-run diffs live server state |
-| `./scripts/05-verify-setup.sh` | `authsetup run 05` or `authsetup status` | |
-| `./scripts/06-test-end-user.sh` | `authsetup run 06` | Go asserts default_grant ⊆ user perms via admin |
-| `./scripts/07-register-consumer.sh` | `authsetup run 07` | reads `<config-dir>/clients.d/*.json`; reuses a saved API key ONLY when permissions match config (fixes the 20260205 stale-key class), mints fresh on drift |
-| `./scripts/08-setup-api-consumers.sh` | `authsetup run 08` | tier teams RECONCILED every run; `api-consumers.json` optional (defaults derived in memory, not written to your config dir) |
-| `./scripts/09-backfill-workspace-permissions.sh` | `authsetup backfill` | flags: `--only-org`, `--extra-perm` (repeatable), `--dry-run` |
-| `./scripts/validate-config.sh` | `authsetup validate` | Go adds the server-side service-name rule |
+| `./setup run` | `authsetup --config-dir ./config run` | Go gates on validation; bash didn't |
+| `./setup run 04` | `authsetup --config-dir ./config run 04` | Go syncs team perms every run (bash needed `SYNC_EXISTING=1`) |
+| `DRY_RUN=1 ./scripts/04-…` | `authsetup --config-dir ./config --dry-run run 04` | Go dry-run diffs live server state |
+| `./scripts/05-verify-setup.sh` | `authsetup --config-dir ./config run 05` or `authsetup --config-dir ./config status` | |
+| `./scripts/06-test-end-user.sh` | `authsetup --config-dir ./config run 06` | Go asserts default_grant ⊆ user perms via admin |
+| `./scripts/07-register-consumer.sh` | `authsetup --config-dir ./config run 07` | reads `<config-dir>/clients.d/*.json`; reuses a saved API key ONLY when permissions match config (fixes the 20260205 stale-key class), mints fresh on drift |
+| `./scripts/08-setup-api-consumers.sh` | `authsetup --config-dir ./config run 08` | tier teams RECONCILED every run; `api-consumers.json` optional (defaults derived in memory, not written to your config dir) |
+| `./scripts/09-backfill-workspace-permissions.sh` | `authsetup --config-dir ./config backfill` | flags: `--only-org`, `--extra-perm` (repeatable), `--dry-run` |
+| `./scripts/validate-config.sh` | `authsetup --config-dir ./config validate` | Go adds the server-side service-name rule |
 
 ## Deliberate behavior changes
 
@@ -45,7 +52,7 @@ ported mode — it needs the provider's admin credentials file
 co-located deployment layout). The cross-team self-service mode
 (`consumer-register.sh`, registering against a provider's step-08 consumers
 org WITHOUT their credentials) is not yet a Go step — use the provider's
-`register_url` (printed by step 08) manually or the bash script.
+`register_url` (printed by step 08) manually.
 
 **Step 07 API-key policy:** bash minted a new key every run; an older helper
 silently reused keys with stale permissions (incident 20260205). authsetup
@@ -68,10 +75,10 @@ server-side until the auth roadmap's Tier 2 lands.
 ## Verification after migrating
 
 ```bash
-authsetup validate
-authsetup --dry-run run          # expect: no planned changes on a healthy setup
-authsetup run 05                 # independent checks
-authsetup run 06                 # end-to-end throwaway user
+authsetup --config-dir ./config validate
+authsetup --config-dir ./config --dry-run run   # expect: no planned changes on a healthy setup
+authsetup --config-dir ./config run 05          # independent checks
+authsetup --config-dir ./config run 06          # end-to-end throwaway user
 ```
 
 A healthy migration shows `no changes were needed — server state already

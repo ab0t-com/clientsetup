@@ -77,21 +77,18 @@ environment:
 
 ## Getting API Keys from Registration Output
 
-After running `07-register-consumer.sh`, extract keys from the credential files:
+After running `authsetup --config-dir ./config run 07`, extract keys from the credential files written under `~/.authmesh/<provider>/`:
 
 ```bash
-# From the consumer credential file
-jq -r '.api_key.key' credentials/billing-consumer.json
-
-# Or from the raw client output
-jq -r '.api_key.key' scripts/service-client-setup/credentials/billing-client.json
+# From the consumer credential file (one dir per upstream provider service-id)
+jq -r '.api_key.key' ~/.authmesh/billing/credentials.json
 ```
 
 ## Key Rotation
 
 To rotate a consumer API key:
 
-1. Re-run `07-register-consumer.sh <provider>` — creates a new key (old key stays valid)
+1. Re-run `authsetup --config-dir ./config run 07` (with the upstream `clients.d/<provider>.json` in the config dir) — creates a new key (old key stays valid)
 2. Update `.env` with the new key
 3. Rebuild: `docker compose up -d --build`
 4. Verify the new key works

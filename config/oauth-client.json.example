@@ -1,7 +1,7 @@
 {
   "client_name": "My Service Frontend",
   "redirect_uris": [
-    "https://my-service.example.com/auth/callback",
+    "https://myservice.example.com/auth/callback",
     "http://localhost:3000/auth/callback"
   ],
   "grant_types": ["authorization_code", "refresh_token"],

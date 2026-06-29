@@ -87,3 +87,7 @@ and `run` again.
   has no such step.
 - **The `*.ab0t.com` hosts are the product's public endpoints** — expected, not
   secrets.
+- **Migrating a user off the old bash kit is zero-migration.** `authsetup` reads
+  the same `config/` files and reconciles the already-provisioned service in
+  place (done steps no-op). Install → point at existing config → `run`. Command
+  mapping in [docs/MIGRATION.md](docs/MIGRATION.md).

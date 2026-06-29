@@ -10,7 +10,7 @@
   "archetype": "self-service",
 
   "service": {
-    "id": "my-service",
+    "id": "myservice",
     "name": "My Service",
     "description": "A self-service SaaS application"
   },
@@ -93,8 +93,8 @@
   },
 
   "_org_diagram": [
-    "Service Org (my-service)              [level 0 — admin, API key, permissions]",
-    "  └── End-Users Org (my-service-users) [level 1 — hosted login, self-registration]",
+    "Service Org (myservice)              [level 0 — admin, API key, permissions]",
+    "  └── End-Users Org (myservice-users) [level 1 — hosted login, self-registration]",
     "        ├── User A (member) → inherits default_grant permissions",
     "        ├── User B (member) → inherits default_grant permissions",
     "        └── User C (member) → inherits default_grant permissions"

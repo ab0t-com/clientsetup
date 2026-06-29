@@ -95,7 +95,11 @@ union by design). To revoke: edit the team's permission array directly
 Saves are merge-preserving: unknown keys (e.g. written by the bash kit or a
 newer version) survive round-trips.
 
-## Build & release
+## Build & release (MAINTAINER / release-engineering only — not for clients)
+
+> Clients do NOT build from source. Install the prebuilt binary with
+> `curl -fsSL https://raw.githubusercontent.com/ab0t-com/clientsetup/main/install.sh | sh`.
+> The commands below are for whoever cuts a release of `authsetup`.
 
 ```
 ./build.sh --local   # bin/authsetup for this machine (gated: vet/fmt/build/gitleaks)

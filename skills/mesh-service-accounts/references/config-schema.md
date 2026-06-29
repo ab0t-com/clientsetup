@@ -9,7 +9,7 @@ Each provider the consumer wants to call gets one JSON config file.
     "provider": {
         "service_id": "billing",
         "service_name": "Billing Service",
-        "credentials_path": "/absolute/path/to/billing/output/credentials/billing.json",
+        "credentials_path": "~/.authmesh/billing/billing.json",
         "service_url": "http://localhost:8002"
     },
     "client": {
@@ -42,7 +42,7 @@ Each provider the consumer wants to call gets one JSON config file.
 |-------|----------|-------------|
 | `service_id` | Yes | Provider's identifier in auth (matches their `permissions.json` service.id) |
 | `service_name` | Yes | Human-readable name (displayed in logs and summaries) |
-| `credentials_path` | Yes | **Absolute path** to provider's credential file (created by their `register-service-permissions.sh`). Contains admin email/password and org ID |
+| `credentials_path` | Yes | **Absolute path** to provider's credential file (created by the provider's own auth setup). Contains admin email/password and org ID |
 | `service_url` | Yes | Provider's API base URL. Used in output file for reference, not during registration |
 
 ### client section
@@ -102,13 +102,14 @@ api_key.name:            "analytics-payment-backend"
 
 ## File Location
 
+Drop one file per provider into the `clients.d/` directory inside your config dir:
+
 ```
-<service>/setup/scripts/service-client-setup/
-├── clients.d/
-│   ├── billing.json      ← one file per provider
-│   ├── payment.json
-│   └── analytics.json
-└── register-as-client.sh
+config/
+└── clients.d/
+    ├── billing.json      ← one file per provider
+    ├── payment.json
+    └── analytics.json
 ```
 
-The `07-register-consumer.sh` wrapper auto-discovers all `clients.d/*.json` files. Adding a new provider means creating one file — no script changes needed.
+Running `authsetup --config-dir ./config run 07` auto-discovers all `clients.d/*.json` files. Adding a new provider means dropping in one file and re-running — no script changes needed.

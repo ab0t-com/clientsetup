@@ -8,40 +8,37 @@ Common errors and fixes for mesh service account registration and cross-service 
 
 The provider service hasn't been registered yet.
 
-**Fix**: Run the provider's `register-service-permissions.sh`:
+**Fix**: Have the provider register its service (step 01):
 ```bash
-cd /path/to/<provider>/output
-bash register-service-permissions.sh
+authsetup --config-dir /path/to/<provider>/config run 01
 ```
 
 ### "Failed to login as provider admin"
 
 The auth DB was wiped — the admin account no longer exists.
 
-**Fix**: Delete stale credentials and re-register:
+**Fix**: The cached admin credentials are stale (the account they point to is gone). Clear `~/.authmesh/<provider>/`, then re-register — the binary reconciles around the recovered identity:
 ```bash
-rm /path/to/<provider>/output/credentials/<provider>.json
-cd /path/to/<provider>/output
-bash register-service-permissions.sh
+authsetup --config-dir /path/to/<provider>/config run 01
 ```
 
 ### "Failed to create customer sub-org"
 
 Provider admin token expired (JWTs last 15 minutes) or admin doesn't own the org.
 
-**Fix**: Re-run the provider's `register-service-permissions.sh`, then retry registration.
+**Fix**: Re-run the provider's `authsetup --config-dir ./config run 01`, then retry registration.
 
 ### "Failed to login service account with org context"
 
 The service account wasn't added to the sub-org in step 5.
 
-**Fix**: Check step 5 output. If invite failed, the provider admin may not have permission. Re-run provider's `register-service-permissions.sh`.
+**Fix**: Check step 5 output. If invite failed, the provider admin may not have permission. Re-run the provider's `authsetup --config-dir ./config run 01`.
 
 ### "Failed to create API key"
 
 The provider's permissions aren't registered in auth.
 
-**Fix**: Re-run provider's `register-service-permissions.sh` (this registers the `{provider}.*` permissions), then retry.
+**Fix**: Re-run the provider's `authsetup --config-dir ./config run 01` (this registers the `{provider}.*` permissions), then retry.
 
 ## Runtime Errors
 
@@ -79,7 +76,7 @@ curl -s -X POST https://auth.service.ab0t.com/auth/validate-api-key \
 - Wrong permission name (e.g., `billing.read` vs `billing.read.accounts`)
 - Permission not registered by provider (check provider's `permissions.json`)
 
-**Fix**: Update `clients.d/<provider>.json` with correct permissions, re-run registration.
+**Fix**: Update `clients.d/<provider>.json` with correct permissions, then re-run `authsetup --config-dir ./config run 07`.
 
 ### 503 "Service unreachable"
 
@@ -128,10 +125,10 @@ logger.warning("event status=%s detail=%s", 500, "err")
 When the auth database is wiped (DynamoDB local restart, etc.), all orgs, accounts, and keys are gone.
 
 Recovery order:
-1. Delete all stale credential files
-2. Re-register provider services (`register-service-permissions.sh`)
-3. Re-register consumer service (`01-register-service-permissions.sh`)
-4. Re-register consumer accounts (`07-register-consumer.sh`)
+1. Clear stale credential dirs (`~/.authmesh/<service>/`)
+2. Re-register provider services (`authsetup --config-dir ./config run 01`)
+3. Re-register your service (`authsetup --config-dir ./config run 01`)
+4. Re-register consumer accounts (`authsetup --config-dir ./config run 07`)
 5. Update `.env` with new API keys
 6. Rebuild containers
 

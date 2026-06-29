@@ -10,7 +10,7 @@
   "archetype": "reseller",
 
   "service": {
-    "id": "my-platform",
+    "id": "myplatform",
     "name": "My Platform",
     "description": "A white-label platform with reseller channel"
   },
@@ -131,15 +131,15 @@
   },
 
   "_org_diagram": [
-    "Platform Org (my-platform)                              [level 0 — all permissions]",
-    "  ├── Reseller A (my-platform-alpha)                    [level 1 — permission ceiling applied]",
-    "  │     ├── Customer A1 (my-platform-alpha-acme)        [level 2 — end users]",
+    "Platform Org (myplatform)                              [level 0 — all permissions]",
+    "  ├── Reseller A (myplatform-alpha)                    [level 1 — permission ceiling applied]",
+    "  │     ├── Customer A1 (myplatform-alpha-acme)        [level 2 — end users]",
     "  │     │     ├── User 1 (member)",
     "  │     │     └── User 2 (member)",
-    "  │     └── Customer A2 (my-platform-alpha-globex)      [level 2 — end users]",
+    "  │     └── Customer A2 (myplatform-alpha-globex)      [level 2 — end users]",
     "  │           └── User 3 (member)",
-    "  └── Reseller B (my-platform-beta)                     [level 1 — different ceiling]",
-    "        └── Customer B1 (my-platform-beta-initech)      [level 2 — end users]",
+    "  └── Reseller B (myplatform-beta)                     [level 1 — different ceiling]",
+    "        └── Customer B1 (myplatform-beta-initech)      [level 2 — end users]",
     "              ├── User 4 (member)",
     "              └── User 5 (member)"
   ],

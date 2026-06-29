@@ -8,11 +8,11 @@ The permission config is the source of truth for what your service can do and wh
 {
   "$schema": "https://auth.service.ab0t.com/schemas/permissions/v2",
   "service": {
-    "id": "sandbox-platform",
+    "id": "myservice",
     "name": "Sandbox Platform",
     "description": "Cloud sandbox provisioning and management",
     "version": "1.0.0",
-    "audience": "sandbox-platform",
+    "audience": "myservice",
     "maintainer": "platform-team@ab0t.com"
   },
   "registration": {
@@ -70,7 +70,7 @@ The permission config is the source of truth for what your service can do and wh
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Unique service ID. Must match `^[a-z][a-z0-9-]*$`. Used in org slugs, API keys, and as the permission namespace prefix |
+| `id` | Yes | Unique service ID. Must match `^[a-z][a-z0-9_]*$`. Used in org slugs, API keys, and as the permission namespace prefix |
 | `name` | Yes | Human-readable display name |
 | `description` | Yes | What the service does |
 | `version` | No | Semver version of the permission schema |

@@ -11,7 +11,7 @@
   "archetype": "corporate",
 
   "service": {
-    "id": "my-enterprise",
+    "id": "myenterprise",
     "name": "My Enterprise System",
     "description": "Enterprise system with deep org hierarchy and SSO"
   },
@@ -191,21 +191,21 @@
   },
 
   "_org_diagram": [
-    "Root Org (my-enterprise)                                    [level 0 — global admin, API keys]",
-    "  ├── Engineering Division (my-enterprise-eng)               [level 1 — own IdP (Okta), own admin]",
-    "  │     ├── Platform Dept (my-enterprise-eng-platform)       [level 2 — teams within]",
+    "Root Org (myenterprise)                                    [level 0 — global admin, API keys]",
+    "  ├── Engineering Division (myenterprise-eng)               [level 1 — own IdP (Okta), own admin]",
+    "  │     ├── Platform Dept (myenterprise-eng-platform)       [level 2 — teams within]",
     "  │     │     ├── Team: Auth (team, permissions inherited)   [team within dept]",
     "  │     │     ├── Team: Infra (team, permissions inherited)",
     "  │     │     ├── Alice (dept_admin)",
     "  │     │     ├── Bot: CI-Pipeline (service account, API key)",
     "  │     │     └── Bob (member, delegated access from Alice during PTO)",
-    "  │     └── Data Dept (my-enterprise-eng-data)               [level 2]",
+    "  │     └── Data Dept (myenterprise-eng-data)               [level 2]",
     "  │           ├── Team: Analytics",
     "  │           └── Charlie (member)",
-    "  ├── Finance Division (my-enterprise-fin)                   [level 1 — own IdP (Azure AD)]",
-    "  │     ├── Accounting Dept (my-enterprise-fin-accounting)   [level 2]",
+    "  ├── Finance Division (myenterprise-fin)                   [level 1 — own IdP (Azure AD)]",
+    "  │     ├── Accounting Dept (myenterprise-fin-accounting)   [level 2]",
     "  │     │     └── Dave (member)",
-    "  │     └── Treasury Dept (my-enterprise-fin-treasury)       [level 2]",
+    "  │     └── Treasury Dept (myenterprise-fin-treasury)       [level 2]",
     "  │           └── Eve (member)",
     "  └── Bot: Monitoring (service account at root level)"
   ],
