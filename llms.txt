@@ -62,6 +62,7 @@ and `run` again.
 - [install.sh](install.sh) — POSIX, HTTPS-only, sha256-verified installer.
 - [release/](release/) — the binaries, `checksums.txt`, `VERSION`.
 - [docs/USAGE.md](docs/USAGE.md) — every scenario (onboard, day-2, backfill, CI, recovery).
+- [docs/INTEGRATING_YOUR_SERVICE.md](docs/INTEGRATING_YOUR_SERVICE.md) — next step after setup: wire your service to verify tokens.
 - [docs/MIGRATION.md](docs/MIGRATION.md) — bash kit (01-09) → binary mapping.
 - [config/](config/) — `*.json.example` schema references + `archetypes/`.
 - [schema/](schema/) — JSON Schemas for every config + credential file.
@@ -85,9 +86,12 @@ and `run` again.
 - **`workspace-per-user` freezes permissions at creation time** — adding a
   permission later needs `backfill` for existing users (see the skill). `flat`
   has no such step.
+- **Setup is not the finish line — wire your service next.** Once `run` converges,
+  your service must verify the tokens it receives; see
+  [docs/INTEGRATING_YOUR_SERVICE.md](docs/INTEGRATING_YOUR_SERVICE.md).
 - **The `*.ab0t.com` hosts are the product's public endpoints** — expected, not
   secrets.
-- **Migrating a user off the old bash kit is zero-migration.** `authsetup` reads
-  the same `config/` files and reconciles the already-provisioned service in
-  place (done steps no-op). Install → point at existing config → `run`. Command
-  mapping in [docs/MIGRATION.md](docs/MIGRATION.md).
+- **Migrating off the old bash kit is a one-time `authsetup migrate`.** Run it once
+  from the old service directory to import existing credentials into
+  `~/.authmesh/<service>/`; then `run` adopts the existing org (no duplicate). See
+  [docs/MIGRATION.md](docs/MIGRATION.md).

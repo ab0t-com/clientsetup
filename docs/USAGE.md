@@ -38,6 +38,12 @@ AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir $CFG run 06   
 Wire your frontend to the printed hosted-login URL + the end-users OAuth
 `client_id` (in `~/.authmesh/<service>/end-users-oauth-client-dev.json`).
 
+> **Truth-teller (roles caveat):** the `roles[]` in `permissions.json` set the
+> default role *name* only. The server does not yet resolve custom
+> role→permission mappings, so a role does NOT confer its permissions today.
+> Grant permission tiers via the team or `authsetup backfill --extra-perm`, not
+> via `roles[]`.
+
 ## 2. Choosing an org structure
 
 | Pattern | Choose when | What users get |
@@ -88,6 +94,11 @@ The universal loop: **edit config → `--dry-run run` → `run`**. Specifics:
 
 After permission changes: users see updates within ~5 minutes (permission
 cache) or immediately on fresh login.
+
+> **Truth-teller:** a newly-registered permission/service becomes visible
+> within ~5 min (registry cache TTL) or on a user's fresh login — so don't be
+> alarmed if a brand-new permission 403s for the first few minutes right after
+> `run 01`. It is not a misconfiguration; wait out the TTL or re-login.
 
 ## 4. The backfill playbook
 
@@ -158,6 +169,10 @@ Agents get a first-class control surface:
 - Machine-readable state: `info` (local), `status` (server), plus the
   credential JSONs themselves (stable shapes documented in the skill's
   control-surface reference).
+- **Truth-teller — "already exists" status codes differ:** if you script
+  around the auth API directly, a duplicate ORG slug returns **409** but a
+  duplicate ACCOUNT email returns **400**. Treat both as benign-idempotent
+  ("already there"), not as fatal errors — handle each code explicitly.
 
 ## 8. Customization points
 

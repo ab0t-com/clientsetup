@@ -82,6 +82,10 @@ page, and an end-users org whose members **auto-join a default team** and
 inherit every `default_grant` permission immediately. Wire your frontend to the
 printed login URL + OAuth `client_id` and you're done.
 
+> **Next step — wire your own service.** Auth is now set up, but your service
+> still needs to *verify* the tokens it receives. See
+> **[`docs/INTEGRATING_YOUR_SERVICE.md`](docs/INTEGRATING_YOUR_SERVICE.md)**.
+
 ## The mental model (read this once)
 
 `config/*.json` is **desired state**. The Auth Mesh is **actual state**. Every
