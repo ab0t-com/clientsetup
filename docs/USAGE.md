@@ -198,3 +198,28 @@ Agents get a first-class control surface:
 | wrong env applied | nothing is shared between envs except your config; re-run against the right `AUTH_SERVICE_URL`; clean up the wrong env's orgs deliberately via the auth API |
 | stale lockfile | error prints the path + pid; verify the pid is dead; remove the file |
 | bash kit and authsetup mixed | fully supported — same files; see docs/MIGRATION.md |
+
+## 10. Rotating credentials
+
+The admin password and the service-internal API key both live in
+`~/.authmesh/<service>/<service>.json`. Rotate them on your security policy's
+cadence:
+
+- **Service API key** (the `api_key` block): `run 01` treats a present key as
+  done, so to rotate you mint a new one and revoke the old.
+  1. In the creds file, clear the `api_key` object (set it to `{}`), then
+     `authsetup --config-dir ./config run 01` → it provisions a **fresh** key and
+     re-saves it.
+  2. Roll the new key out to your consumers, then revoke the old key id via the
+     auth service: `DELETE /api-keys/{old_id}`.
+- **Admin password** (`admin.password`): change it server-side (the auth
+  service's password-change / reset for the admin email), then update
+  `admin.password` in the creds file so `authsetup` can still log in. There is no
+  rotate command — the admin is a normal auth account.
+- **OAuth registration token**: rotates automatically — the RFC 7592 update path
+  (`run 02`/`run 04` on redirect drift) re-persists any new
+  `registration_access_token` the server returns.
+
+Never commit these files (they are 0600 and outside any repo by default). After
+rotating, the redacted compliance journal records the exchange for your audit
+trail.
