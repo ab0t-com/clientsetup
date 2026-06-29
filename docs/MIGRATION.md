@@ -11,6 +11,16 @@ dir migrates as-is. Credentials now land in `~/.authmesh/<service>/` (0600),
 outside any repo, with a redacted journal. authsetup saves are
 merge-preserving — it never drops keys it doesn't own.
 
+> **One-way once you adopt env labels.** `authsetup`'s multi-environment mode
+> (`--env`, see [`USAGE.md` §5](USAGE.md#5-multi-environment)) writes per-env
+> credential files named `<svc>.<env>.json` (e.g. `<service>.dev.json`). The
+> old bash kit only knows the legacy `<svc>.json` / `<svc>-dev.json` names and
+> will **not** read the `.<env>.` files — so once you start using env labels,
+> the bash kit can no longer see those credentials. authsetup still *reads* the
+> legacy files (read-only fallback: env `dev` → `<svc>-dev.json`, env `prod` →
+> `<svc>.json`), so going binary-only is seamless; only going back to bash after
+> adopting env labels is the one-way step.
+
 ## Migrate once, then forget it
 
 The everyday `authsetup` commands look for credentials in `~/.authmesh/<service>/`,

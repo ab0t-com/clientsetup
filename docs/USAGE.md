@@ -120,17 +120,62 @@ authsetup backfill                                # full sweep (idempotent; reru
 
 ## 5. Multi-environment
 
-Credentials are isolated per environment automatically (`-dev` file suffix
-for `localhost`/`*.dev.ab0t.com`). The config is shared.
+Pick the target environment with one flag — `--env` (or `AUTHSETUP_ENV`) — and
+`authsetup` resolves the auth-service URL and keeps that env's credentials
+isolated from every other. **The config is shared** across all envs; only
+credentials are per-env. Every command prints the active env (`· env: <name>`)
+so you always see which server you're hitting.
 
 ```bash
-AUTH_SERVICE_URL=https://auth.dev.ab0t.com  authsetup --config-dir $CFG run   # dev
-AUTH_SERVICE_URL=https://auth.service.ab0t.com authsetup --config-dir $CFG run # prod (defaults here)
-authsetup --config-dir $CFG info    # shows which env-suffix + creds dir is active
+authsetup --config-dir $CFG --env dev   run   # → auth.dev.ab0t.com
+authsetup --config-dir $CFG --env prod  run   # → auth.service.ab0t.com (the default)
+authsetup --config-dir $CFG --env local run   # → http://localhost:8001
+authsetup --config-dir $CFG env               # list built-ins + registry + which env resolved
+authsetup --config-dir $CFG info              # lists ALL <svc>.<env>.json present for the service
 ```
 
-Promote dev → prod by re-running the same config against prod; never copy
-credential files between environments.
+**Built-in envs.** `prod`, `dev`, `local` ship out-of-box with the URLs above;
+`prod` is the default when nothing is specified (existing scripts/CI are
+unchanged). Any other name (`staging`, `eu`, …) is a **custom env** you define
+in the registry (below).
+
+**How the env resolves** — `--env` > `AUTHSETUP_ENV` > a label derived from an
+explicit `--base-url`/`AUTH_SERVICE_URL` > default `prod`. An unknown `--env`
+is an **error**, never a silent fall-back to prod.
+
+**Agreement rule.** If you pass BOTH `--env X` and an explicit
+`--base-url`/`AUTH_SERVICE_URL`, and the URL is *not* env `X`'s resolved URL,
+the command **errors** rather than silently sending env-`X`-labelled creds to a
+different server. Pass one or the other, or make them agree.
+
+**Per-env credential files.** Credentials live in the same flat
+`~/.authmesh/<service>/` dir, labelled by env in the filename:
+`<name>.<env>.json` (e.g. `<service>.dev.json`,
+`end-users-oauth-client.prod.json`). No subdirectories. Saves are **additive** —
+they never move or rewrite another env's file. For back-compat, an env reads a
+legacy unlabelled file read-only when its own file is absent: env `dev` falls
+back to the old `<name>-dev.json` and env `prod` to the old `<name>.json`; any
+other env starts fresh. The first save under that env writes the new
+`<name>.<env>.json` and leaves the legacy file untouched.
+
+**Custom envs (the registry).** Define extra envs (or override a built-in URL)
+in `~/.authmesh/environments.json`, or check a team copy into the repo at
+`<config-dir>/environments.json` (repo-local wins). **URLs only** — any
+secret-looking field is ignored with a warning, so the repo-local file is safe
+to commit.
+
+```jsonc
+// ~/.authmesh/environments.json  (or <config-dir>/environments.json)
+{
+  "environments": {
+    "staging": { "auth_service_url": "https://auth.staging.ab0t.com" },
+    "dev":     { "auth_service_url": "https://auth.dev.internal" }   // override a built-in
+  }
+}
+```
+
+Promote dev → prod by re-running the same config against prod
+(`--env prod`); never copy credential files between environments.
 
 ## 6. Automation: CI
 

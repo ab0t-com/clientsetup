@@ -109,8 +109,11 @@ the config and `run` again.**
   GitHub-namespace / Notion-personal model). One config field.
 - **Reconcile, not fire-and-forget.** `status` shows drift; `run` converges it.
   Re-runnable, idempotent, lockfile-guarded.
-- **Multi-environment.** `AUTH_SERVICE_URL` switches dev/prod; credentials are
-  isolated per environment automatically. Same config promotes dev → prod.
+- **Multi-environment.** `--env dev|prod|local|<custom>` (or `AUTHSETUP_ENV`)
+  switches the target in one token; credentials are isolated per environment
+  (labelled `<svc>.<env>.json` in the same flat dir) while the config stays
+  shared. Custom envs come from a URLs-only registry. Same config promotes
+  dev → prod. See [`docs/USAGE.md` §5](docs/USAGE.md#5-multi-environment).
 - **Credentials stay out of git.** Secrets are written to
   `~/.authmesh/<service>/` (0600) by design, with a redacted compliance journal
   of every API exchange.

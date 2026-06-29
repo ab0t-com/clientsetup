@@ -83,6 +83,13 @@ and `run` again.
   `--unsafe-creds-in-repo` without human signoff.
 - **Credentials live in `~/.authmesh/<service>/`** (0600, outside any repo) with
   a redacted journal per run. Never commit them.
+- **Pick the env with `--env dev|prod|local|<custom>`** (or `AUTHSETUP_ENV`;
+  default `prod`). It resolves the auth URL and isolates creds per env
+  (`<svc>.<env>.json`, flat dir); config stays shared. Custom envs come from a
+  URLs-only registry (`~/.authmesh/environments.json` or repo-local
+  `<config-dir>/environments.json`). Passing `--env X` AND a conflicting
+  explicit URL is an error; an unknown `--env` errors (never silent prod). See
+  [docs/USAGE.md §5](docs/USAGE.md#5-multi-environment).
 - **`workspace-per-user` freezes permissions at creation time** — adding a
   permission later needs `backfill` for existing users (see the skill). `flat`
   has no such step.
