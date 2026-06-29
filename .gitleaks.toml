@@ -1,4 +1,4 @@
-# Gitleaks configuration for client-service-setup-cli
+# Gitleaks configuration for clientsetup
 # https://github.com/gitleaks/gitleaks
 #
 # Policy: scan EVERY file (including .md docs and .json.example) with the full
@@ -7,7 +7,7 @@
 #
 # Real secrets in any file (docs included) WILL be flagged.
 
-title = "client-service-setup-cli gitleaks config"
+title = "clientsetup gitleaks config"
 
 [extend]
   # Use the full built-in gitleaks ruleset as the base.

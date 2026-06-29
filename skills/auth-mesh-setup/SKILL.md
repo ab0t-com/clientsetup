@@ -12,7 +12,7 @@ Onboard any service to Auth Mesh using the setup CLI. The system is config-drive
 ### 1. Clone the setup CLI into your project
 
 ```bash
-git clone https://github.com/ab0t-com/client-service-setup-cli.git setup
+git clone https://github.com/ab0t-com/clientsetup.git setup
 cd setup
 ```
 

@@ -1,0 +1,89 @@
+# authsetup — agent bootstrap (llms.txt)
+
+> A single static Go binary that onboards a service to the ab0t Auth Mesh and
+> keeps it converged with its config. This file is the **bootstrap entrypoint
+> for an AI agent**: follow it top to bottom to install the tool, load its
+> operating knowledge, and onboard (or change) a service. Everything linked
+> below is in this repo.
+
+## What this is
+
+`authsetup` gives a service real auth (signup, login, permissions) with no auth
+code. You write three JSON files describing the service; the binary
+**reconciles** the Auth Mesh to match. Permissions flow through org membership
+(Zanzibar), not per-user grants — so there are no webhooks, cron, or middleware
+to maintain. Every command is re-runnable; to change anything you edit config
+and `run` again.
+
+## Bootstrap sequence
+
+1. **Install the binary.**
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/ab0t-com/clientsetup/main/install.sh | sh
+   ```
+   (Checksum-verified, atomic, idempotent.) Or run a [`release/`](release/)
+   binary directly — static, no deps; pick `authsetup-<os>-<arch>`.
+
+2. **Confirm it works.**
+   ```sh
+   authsetup version
+   ```
+
+3. **Load the operating skill.** Read
+   [`skills/authsetup-cli/SKILL.md`](skills/authsetup-cli/SKILL.md) and its
+   `references/control-surface.md` — it encodes the reconcile model, the exact
+   flag matrix, the day-2 backfill playbook, and the credential/journal rules.
+   For permission-schema *design*, also load
+   [`skills/auth-mesh-setup/`](skills/auth-mesh-setup/); for cross-service API
+   access, [`skills/mesh-service-accounts/`](skills/mesh-service-accounts/).
+
+4. **Describe the service.** Copy and edit the examples:
+   ```sh
+   cp config/permissions.json.example  config/permissions.json   # service id, actions, resources, default_grant
+   cp config/oauth-client.json.example config/oauth-client.json  # frontend redirect URIs
+   cp config/hosted-login.json.example config/hosted-login.json  # branding + registration rules
+   ```
+
+5. **Validate, plan, apply.** Global flags go BEFORE the subcommand.
+   ```sh
+   authsetup --config-dir ./config validate
+   AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir ./config --dry-run run
+   AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir ./config run
+   ```
+   Exit code is the contract: 0 = converged. On failure the printed server
+   `detail` says why — read it before retrying.
+
+6. **Prove it.** `run 06` registers a throwaway user and checks it inherits the
+   `default_grant` permissions. `status` reads live server state any time.
+
+## Map
+
+- [README.md](README.md) — overview, install, feature tour.
+- [install.sh](install.sh) — POSIX, HTTPS-only, sha256-verified installer.
+- [release/](release/) — the binaries, `checksums.txt`, `VERSION`.
+- [docs/USAGE.md](docs/USAGE.md) — every scenario (onboard, day-2, backfill, CI, recovery).
+- [docs/MIGRATION.md](docs/MIGRATION.md) — bash kit (01-09) → binary mapping.
+- [config/](config/) — `*.json.example` schema references + `archetypes/`.
+- [schema/](schema/) — JSON Schemas for every config + credential file.
+- [skills/](skills/) — agent skills (each `SKILL.md` opens with install/usage):
+  - `authsetup-cli/` — drive the CLI (the daily-driver skill).
+  - `auth-mesh-setup/` — design the permission schema + org structure.
+  - `mesh-service-accounts/` — register as a consumer of another service.
+
+## Key facts an agent should internalize
+
+- **Desired state, not commands.** Config is the source of truth; commands
+  reconcile. To change anything: edit config → `--dry-run run` → `run`. There is
+  no separate update command.
+- **Global flags precede the subcommand.** `authsetup --config-dir ./config run`
+  — NOT `authsetup run --config-dir ./config`.
+- **`--dry-run` first when acting autonomously.** Read the plan; apply only if
+  it matches intent. Treat exit 0 as converged. Never use `--skip-validate` or
+  `--unsafe-creds-in-repo` without human signoff.
+- **Credentials live in `~/.authmesh/<service>/`** (0600, outside any repo) with
+  a redacted journal per run. Never commit them.
+- **`workspace-per-user` freezes permissions at creation time** — adding a
+  permission later needs `backfill` for existing users (see the skill). `flat`
+  has no such step.
+- **The `*.ab0t.com` hosts are the product's public endpoints** — expected, not
+  secrets.

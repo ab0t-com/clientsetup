@@ -1,48 +1,25 @@
-# Service-specific config — only .example files are committed
-config/permissions.json
-config/hosted-login.json
-config/oauth-client.json
-config/api-consumers.json
-
-# Internal docs — design notes, audits, tickets (contain real org IDs, credentials, internal refs)
-internal/
-TASKLIST*
-tasklist*
-
-# Consumer registration configs — contain service account passwords
-scripts/service-client-setup/clients.d/*.json
-!scripts/service-client-setup/clients.d/*.json.example
-
-# Credentials — real secrets live in credentials/*.json (blocked by credentials/.gitignore)
-*.env
-*.env.*
-!*.env.example
-.env.local
-
-# OS / editor
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
+# Local agent / editor settings — never published
+.claude/
 .idea/
 .vscode/
-*.code-workspace
 
-# Logs
-*.log
-logs/
+# OS cruft
+.DS_Store
+Thumbs.db
 
-# Temp files
+# Build scratch
 *.tmp
-*.bak
-*.bak.*
+*.log
 
-# Node (if SDK tooling is added later)
-node_modules/
-package-lock.json
+# Real (non-.example) service configs — only the .example schema refs ship.
+# The binary writes credentials to ~/.authmesh/<service>/, outside any repo.
+# (credentials/ is NOT ignored here — its own credentials/.gitignore keeps the
+#  .example docs and ignores only real *.json, same as the rest of the kit.)
+config/permissions.json
+config/oauth-client.json
+config/hosted-login.json
+config/api-consumers.json
+config/org-structure.json
 
-# Python
-__pycache__/
-*.pyc
-.venv/
+# Note: release/authsetup-* ARE intentionally committed — the prebuilt binaries
+# are the point of this repo. Do not ignore release/.

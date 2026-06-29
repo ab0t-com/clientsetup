@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-push hook for client-service-setup-cli.
+# Pre-push hook for auth-clientsetup-private.
 #
 # Refuses pushes from clones that have been populated with live setup
 # state — service-specific configs, real credentials, internal docs.

@@ -1,0 +1,3 @@
+# .gitleaksignore — fingerprints of gitleaks findings to ignore, one per line.
+# A blocked commit prints each finding's "Fingerprint:"; paste it here ONLY for
+# genuine false positives. Real secrets get removed and rotated, never ignored.

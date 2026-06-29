@@ -11,7 +11,7 @@ You don't need to be a maintainer. Three ways, in increasing order of
 weight:
 
 1. **Open a GitHub issue** at
-   https://github.com/ab0t-com/client-service-setup-cli/issues with a
+   https://github.com/ab0t-com/clientsetup/issues with a
    short title and the smallest reproducer you can write. This is the
    right path if you're not sure whether something is a bug, a missing
    feature, or by-design.
