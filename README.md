@@ -12,6 +12,10 @@ of auth code. You describe your service in three JSON files; `authsetup`
 reconciles the Auth Mesh to match. No webhooks, no cron, no per-user grants, no
 middleware.
 
+> **Just want to _call_ an ab0t service** (billing, payment, audit, …) from your
+> own app? You don't need any config at all — connect and get a scoped key in one
+> command. See **[`QUICKSTART.md`](QUICKSTART.md)** (about 5 minutes).
+
 ```
   config/*.json  (desired state)         authsetup            Auth Mesh (actual state)
   ─────────────────────────────  ──reconcile──►  service org · permissions · OAuth

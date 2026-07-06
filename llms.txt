@@ -56,9 +56,50 @@ and `run` again.
 6. **Prove it.** `run 06` registers a throwaway user and checks it inherits the
    `default_grant` permissions. `status` reads live server state any time.
 
+## Connect to a mesh provider (consume another service's API)
+
+The steps above onboard YOUR service. This section is the reverse: your service
+needs to **call** an ab0t mesh provider (billing, payment, audit, …). You do
+NOT need the provider's credentials, a monorepo checkout, or any config file —
+`authsetup` facilitates the whole relationship in one command.
+
+1. **Discover** who accepts self-serve consumers:
+   ```sh
+   authsetup providers            # human-readable; add --json for scripting
+   ```
+   Each entry shows the provider id, its `register_url`, and its tiers with the
+   exact permissions each grants. The **default tier is zero-touch** (anyone can
+   self-register into it); higher tiers need the provider to upgrade you.
+
+2. **Connect** — self-register a consumer account and mint a scoped key:
+   ```sh
+   authsetup connect billing --as my-service
+   ```
+   This registers a service account in the provider's `*-api-consumers` org and
+   mints an `ab0t_sk_live_…` key holding exactly the default tier's permissions
+   (the auth service 403s any permission the tier doesn't grant). The key is
+   saved 0600 to `~/.authmesh/my-service/billing-consumer.<env>.json`; the
+   command is **idempotent** (re-running reuses the saved key). Pick a non-default
+   tier with `--tier "<name>"`.
+
+3. **Wire the key** into your service. `connect` prints the env vars (the key
+   value is never printed — it's in the 0600 file):
+   ```sh
+   BILLING_SERVICE_URL=https://billing.service.ab0t.com
+   BILLING_SERVICE_API_KEY=<read .api_key.key from the saved file>
+   # ab0t-quota-go (Go) reads: AB0T_QUOTA_BILLING_URL=https://billing.service.ab0t.com
+   ```
+   Send the key as `X-API-Key` on every call to the provider. For billing /
+   payment specifically, the `billing-payment-integration` skill covers the
+   runtime proxy routes, checkout, and subscriptions.
+
+Load the [`skills/connect-to-ab0t-mesh-provider/`](skills/connect-to-ab0t-mesh-provider/)
+skill for the guided path (discover → connect → wire → verify).
+
 ## Map
 
 - [README.md](README.md) — overview, install, feature tour.
+- [QUICKSTART.md](QUICKSTART.md) — consumer quickstart: connect to a provider + get a scoped key in ~5 minutes (for clients who only need to CALL an ab0t service).
 - [install.sh](install.sh) — POSIX, HTTPS-only, sha256-verified installer.
 - [release/](release/) — the binaries, `checksums.txt`, `VERSION`.
 - [docs/USAGE.md](docs/USAGE.md) — every scenario (onboard, day-2, backfill, CI, recovery).
@@ -70,6 +111,7 @@ and `run` again.
   - `authsetup-cli/` — drive the CLI (the daily-driver skill).
   - `auth-mesh-setup/` — design the permission schema + org structure.
   - `mesh-service-accounts/` — register as a consumer of another service.
+  - `connect-to-ab0t-mesh-provider/` — discover + connect to a provider (`providers` / `connect`).
 
 ## Key facts an agent should internalize
 
