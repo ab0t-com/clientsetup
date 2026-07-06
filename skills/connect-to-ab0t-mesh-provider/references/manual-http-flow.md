@@ -43,9 +43,18 @@ TOKEN=<access_token from step 1>
 curl -X POST https://auth.service.ab0t.com/api-keys/ \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name":"my-svc -> billing","permissions":["billing.read","billing.cross_tenant"]}'
+  -d '{"name":"my-svc -> billing","permissions":["billing.read","billing.read.accounts"]}'
 # -> {"id":"...","key":"ab0t_sk_live_...","permissions":[...]}   shown ONCE
 ```
+
+> **Privileged perms are NOT in the default tier.** `cross_tenant` / `cross_org` /
+> `global.*` cross tenant boundaries and are **explicit-only** — a provider's
+> `default:true` / open-signup tier never carries them. If your service is a
+> genuine multi-org gateway that needs `billing.cross_tenant`, the provider must
+> add your account to an explicit `default:false`, `privileged_ack:true`
+> "Cross-Tenant (invite)" tier first (see "Re-runs / rotation" below and
+> `mesh-consumer-account-sop`). Requesting it before you hold it → 403. Ref:
+> ticket `20260706_cross_tenant_privilege_guardrails`.
 
 Save `key` securely — it is not retrievable again.
 
