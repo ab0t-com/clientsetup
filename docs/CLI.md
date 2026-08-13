@@ -82,6 +82,13 @@ You now have: a service org · permission schema · OAuth client(s) (PKCE,
 RFC 7591/7592-managed) · hosted login page · an end-users org whose new
 signups automatically receive every `default_grant: true` permission.
 
+**Three orgs, three audiences:** `{service}` is your master workspace (admin +
+hosted login page); `{service}-users` holds your **human end users** (they
+self-register at the hosted login page — there is deliberately no manual
+add-user command); a later `run 08` opens a `{service}-api-consumers` org for
+**other services** that call your API. "consumer" always means another service,
+never a human end user.
+
 **Commands:** `validate` · `run [step…]` · `status` · `backfill` · `info` ·
 `version`. Run `authsetup help` for flags, or read the
 [control surface](../Skills/authsetup-cli/references/control-surface.md).

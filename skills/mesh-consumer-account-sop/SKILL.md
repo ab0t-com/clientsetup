@@ -5,6 +5,8 @@ description: Operational SOP + field playbook for provisioning, adopting, or mig
 
 # Mesh Consumer Account SOP
 
+> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+
 Give a service its own **scoped API key** to call another mesh service, using the `authsetup` Go binary (`~/.local/bin/authsetup`). One `clients.d/<provider>.json` per provider → `authsetup run 07` → a `<consumer>-consumer.prod.json` cred (0600, in `~/.authmesh/<consumer>/`) holding an `X-API-Key`.
 
 ## 0. Decide the operation FIRST (the fork that prevents damage)

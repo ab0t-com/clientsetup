@@ -86,6 +86,13 @@ page, and an end-users org whose members **auto-join a default team** and
 inherit every `default_grant` permission immediately. Wire your frontend to the
 printed login URL + OAuth `client_id` and you're done.
 
+**Three orgs, three audiences:** `{service}` is your master workspace (admin +
+hosted login page); `{service}-users` holds your **human end users** (they
+self-register at the hosted login page — there is deliberately no manual
+add-user command); a later `run 08` opens a `{service}-api-consumers` org for
+**other services** that call your API. "consumer" always means another service,
+never a human end user.
+
 > **Next step — wire your own service.** Auth is now set up, but your service
 > still needs to *verify* the tokens it receives. See
 > **[`docs/INTEGRATING_YOUR_SERVICE.md`](docs/INTEGRATING_YOUR_SERVICE.md)**.

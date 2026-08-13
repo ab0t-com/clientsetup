@@ -59,6 +59,15 @@ end-users org with auto-join default team. New signups get every
 **Change redirect URIs / branding / registration defaults:** edit
 `oauth-client.json` / `hosted-login.json`, then `run 02` / `run 03` + `run 04`.
 
+**Land users in their own workspace on login:** set
+`registration.default_landing = "workspace"` in `hosted-login.json` (enum
+`"workspace"`\|`"parent"`, default `"parent"`), then `run 04`. Requires
+`org_structure.pattern = "workspace-per-user"` — there must be a workspace to
+land in. Login-only and async-safe (registration always lands on the parent).
+To flip it live without re-running setup, `PUT
+/organizations/{end_users_org_id}/login-config` is a deep-merge — send just
+`{"registration":{"default_landing":"workspace"}}`. Not a CLI flag.
+
 **Check health / drift:** `authsetup status` (read-only). Any reported drift
 is fixed by `run`.
 
@@ -92,6 +101,10 @@ AUTH_SERVICE_URL=... AUTHSETUP_CREDS_DIR=/var/lib/authmesh/svc \
 - Validation gates every command. `--skip-validate` exists; do not use it.
 
 ## Mesh service-to-service (steps 07/08)
+
+> **NOTE:** step 08's `{service}-api-consumers` org is for OTHER SERVICES (mesh
+> consumers), NOT your human end users — those live in the `{service}-users` org
+> from step 04. Different orgs, different audiences, different login-config.
 
 **Provide your API to other services:** `run 08` — creates
 `{service}-api-consumers` org with tiered teams (Read-Only default +

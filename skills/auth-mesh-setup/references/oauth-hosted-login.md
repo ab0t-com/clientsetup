@@ -59,7 +59,8 @@
   "registration": {
     "default_role": "member",
     "require_email_verification": false,
-    "collect_name": true
+    "collect_name": true,
+    "default_landing": "parent"
   },
   "security": {
     "post_logout_redirect_uri": "https://sandbox.dev.ab0t.com",
@@ -84,6 +85,7 @@
 | `auth_methods.invitation_only` | Override — if true, signup_enabled is ignored |
 | `registration.default_role` | Role for new users. Step 04 overrides to `"member"` |
 | `registration.default_team` | Team ID for auto-join. Step 04 injects this |
+| `registration.default_landing` | Where a user lands on **login**: `"parent"` (default) or `"workspace"`. `"workspace"` requires `org_structure.pattern = "workspace-per-user"` — scopes the login token to the user's own workspace org instead of the shared parent. Login only (registration always lands on parent); async-safe parent fallback until the workspace materializes. |
 | `security.post_logout_redirect_uri` | Where to send users after logout |
 | `security.accept_invite_url` | Where the auth service redirects valid invitation clicks. Auth appends `?code=<…>`. Optional — leave unset to use the bundled fallback. |
 | `security.accept_invite_error_url` | Where the auth service redirects used / expired / unknown invitations. Auth appends `?reason=used\|expired\|not_found\|invalid`. Optional. |
@@ -91,7 +93,7 @@
 
 ### Important
 
-- Step 03 applies config via `PUT /organizations/{org_id}/login-config` (full replace, not merge)
+- Step 03 applies config via `PUT /organizations/{org_id}/login-config` — a partial **deep-merge** (fields you set overwrite; fields you omit are preserved). This is exactly why step 04 can inject into it below.
 - Step 04 **injects** `registration.default_role = "member"` and `registration.default_team = {team_id}` into this config
 - The hosted login page is public at: `{AUTH_SERVICE_URL}/login/{org_slug}`
 

@@ -92,6 +92,12 @@
         "collect_name": {
           "type": "boolean",
           "description": "Show name field on registration form"
+        },
+        "default_landing": {
+          "type": "string",
+          "enum": ["workspace", "parent"],
+          "default": "parent",
+          "description": "Where a hosted-login end-user lands on login. \"workspace\" = their own personal workspace org (auto-land; REQUIRES org_structure.pattern=workspace-per-user so a workspace exists). \"parent\" (default) = the shared tenant parent org (today's behavior). Case-sensitive. The auth service deep-merges this into login_config.registration; it can also be flipped live later via PUT /organizations/{org_id}/login-config."
         }
       },
       "additionalProperties": false

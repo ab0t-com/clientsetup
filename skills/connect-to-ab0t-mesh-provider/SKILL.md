@@ -5,6 +5,8 @@ description: Connect a client service (or agent) to an ab0t Auth Mesh provider u
 
 # Connect to an ab0t mesh provider
 
+> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+
 Facilitate the relationship between your service and a provider's API in one
 command — no provider credentials, no config files, no monorepo. The provider
 opened self-serve consumption once (their `run 08`); you self-register and mint

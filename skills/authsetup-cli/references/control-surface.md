@@ -36,8 +36,8 @@ Exit codes: `0` converged/valid · `1` anything else (message says what).
 |---|---|---|
 | 01 | admin account (verify-or-bootstrap; `ADMIN_EMAIL` env overrides generated identity), service org (slug = `service.id`), permission-schema catalog entry, service API key (`{service}-internal`, all perms, created once) | `{service}.json` |
 | 02 | OAuth client on service org: RFC 7591 create, RFC 7592 redirect-URI reconcile (management token persisted + re-persisted on rotation) | `oauth-client.json` |
-| 03 | hosted-login document on service org (PUT-replace of `hosted-login.json`) | — |
-| 04 | end-users org (`{service}-users`, child of service org) · default team **permissions synced to `default_grant` union every run** · org-scoped schema · login-config (`default_role` = configured role, `default_team`, `org_structure` with `{service_id}` substitution + `default_team_permissions` injection) · end-users OAuth client | `end-users-org.json`, `end-users-oauth-client.json` |
+| 03 | hosted-login document on service org (deep-merge of `hosted-login.json` onto login-config) | — |
+| 04 | end-users org (`{service}-users`, child of service org) · default team **permissions synced to `default_grant` union every run** · org-scoped schema · login-config (`default_role` = configured role, `default_team`, `default_landing` from `hosted-login.json` (`"parent"`\|`"workspace"`, default `parent`; `"workspace"` requires `org_structure.pattern="workspace-per-user"`), `org_structure` with `{service_id}` substitution + `default_team_permissions` injection) · end-users OAuth client | `end-users-org.json`, `end-users-oauth-client.json` |
 | 07 | for each `<config-dir>/clients.d/*.json`: customer sub-org under the provider, service account, org membership, API key (reused only while permissions match config; fresh key on drift) | `<provider>-consumer.json` |
 | 08 | `{service}-api-consumers` org · tier teams (permissions reconciled every run) · org-scoped schema · signup login-config (auto-join default tier, role `service_account`) | `api-consumers.json` |
 | 05 | nothing — verification: health, orgs, team perms ⊇ default_grant, login page | — |

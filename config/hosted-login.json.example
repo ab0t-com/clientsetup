@@ -19,7 +19,8 @@
   "registration": {
     "default_role": "end_user",
     "require_email_verification": false,
-    "collect_name": true
+    "collect_name": true,
+    "default_landing": "parent"
   },
   "security": {
     "post_logout_redirect_uri": "https://myservice.example.com",

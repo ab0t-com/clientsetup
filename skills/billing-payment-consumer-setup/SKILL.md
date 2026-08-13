@@ -5,6 +5,8 @@ description: Mint a service's billing (8002) and payment (8005) mesh consumer ac
 
 # Billing / Payment Mesh Consumer Setup (via authsetup)
 
+> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+
 Mint a service's **billing** and **payment** consumer accounts — the scoped
 `X-API-Key`s that let it call billing-service (8002) and payment-service (8005)
 on behalf of its users — using the `authsetup` Go binary.

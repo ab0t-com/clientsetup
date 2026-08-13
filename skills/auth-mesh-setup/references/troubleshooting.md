@@ -54,7 +54,7 @@ authsetup --config-dir ./config run 01
 
 ### Login page shows wrong branding
 
-**Cause:** Step 03 does a full replace — the last config applied wins.
+**Cause:** Step 03 deep-merges the applied config — for each field it sets, the last value applied wins (fields you omit are left untouched, not dropped).
 
 **Fix:** Re-run step 03 with the correct `config/hosted-login.json`: `authsetup --config-dir ./config run 03`.
 

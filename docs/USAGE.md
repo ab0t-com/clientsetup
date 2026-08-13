@@ -4,6 +4,20 @@ Task-oriented recipes for the full range of client situations. Written to be
 followed verbatim by a human or an agent. Conventions: `$CFG` = your config
 dir; dev first, prod second; `--dry-run` before every first apply.
 
+### The three orgs authsetup creates (know which is which)
+
+Onboarding gives your service **three** orgs, for three different audiences:
+
+| Org (slug) | Who it's FOR | Login-config here | How they get in |
+|---|---|---|---|
+| `{service}` | your **master workspace** (admin) | the hosted login page | you, the operator |
+| `{service}-users` | your **END USERS — humans** who sign into your product | signup | self-serve at the hosted login page |
+| `{service}-api-consumers` | **MESH CONSUMERS — other services** that call your API | signup | `authsetup connect` / the published `register_url` |
+
+Two directions: you **PROVIDE** (`run`; step 08 opens your API) and you **CONSUME**
+(`providers` → `connect`; step 07). The word **"consumer" always means another service,
+never a human** — say "mesh consumer (other service)" or "consume an upstream provider".
+
 ## TOC
 1. [First-time onboarding](#1-first-time-onboarding)
 2. [Choosing an org structure](#2-choosing-an-org-structure)
@@ -14,6 +28,7 @@ dir; dev first, prod second; `--dry-run` before every first apply.
 7. [Automation: agents](#7-automation-agents)
 8. [Customization points](#8-customization-points)
 9. [Recovery & repair](#9-recovery--repair)
+11. [Adding users](#11-adding-users)
 
 ---
 
@@ -48,7 +63,7 @@ Wire your frontend to the printed hosted-login URL + the end-users OAuth
 
 | Pattern | Choose when | What users get |
 |---|---|---|
-| `flat` (default) | users are interchangeable consumers of a shared API (SaaS tools, dev portals, internal apps) | membership in one shared end-users org + auto-join default team |
+| `flat` (default) | your human users are interchangeable members of a shared API (SaaS tools, dev portals, internal apps) | membership in one shared end-users org + auto-join default team |
 | `workspace-per-user` | each user is a tenant with private space — their own keys, teammates, billable usage (GitHub-namespace / Notion-personal model) | everything above **plus** a private child org they own, with its own default team |
 
 Set it in `end_users.org_structure`:
@@ -71,6 +86,26 @@ here): each existing workspace carries a *frozen copy* of the permission set
 from its creation time. Adding a permission later requires the
 [backfill playbook](#4-the-backfill-playbook) for existing users until the
 platform's live-policy work removes the need. `flat` has no such step.
+
+**Land users in their workspace on login (`registration.default_landing`).**
+`workspace-per-user` creates a workspace, but by default a logged-in user still
+lands on the shared parent org and switches into their workspace by hand. Set
+`registration.default_landing = "workspace"` in `hosted-login.json` so **login**
+scopes the token straight to the user's own workspace org:
+
+```jsonc
+// hosted-login.json → registration
+"default_landing": "workspace"   // "workspace" | "parent"  (default "parent")
+```
+
+Enum-validated (case-sensitive). It **requires** `workspace-per-user` — under
+`flat` there is no workspace to land in, so set the two together. Login-only and
+async-safe: registration always lands on the parent (the workspace is created
+just after signup), so the first login right after signup may still land on the
+parent until the workspace materializes, then resolves on the next login (never
+errors). Applied by `run 03`/`run 04`; to flip it live later, `PUT
+/organizations/{end_users_org_id}/login-config` is a deep-merge — send just
+`{"registration":{"default_landing":"workspace"}}`.
 
 **Other archetypes** (`config/archetypes/`: b2b-multi-tenant, departmental,
 corporate, reseller, dynamic) document the org shapes the mesh is designed
@@ -225,11 +260,12 @@ Agents get a first-class control surface:
 |---|---|---|
 | default permissions for every user | `permissions[].default_grant` | shared team + workspace template |
 | default role name on signup | `roles[].default` / `end_users.default_role` | written into login-config |
+| land users in their workspace on login | `hosted-login.json` `registration.default_landing` (`"workspace"`; needs `workspace-per-user`) | login token scoped to the user's own workspace org |
 | shared team name | `end_users.default_team_name` | step 04 |
 | workspace slug/name/team | `org_structure.config.*_template`, `default_team_name` | per-user workspaces |
 | workspace perms ≠ default_grant | `org_structure.config.default_team_permissions` | workspace template |
 | frontend client name/redirects | `oauth-client.json` | both OAuth clients |
-| login page content/branding/security | `hosted-login.json` (PUT-replace: the file is the whole truth) | hosted login |
+| login page content/branding/security | `hosted-login.json` (deep-merged onto login-config; fields you set overwrite, omitted preserved) | hosted login |
 | admin identity at bootstrap | `ADMIN_EMAIL` env on first `run 01` | service admin account |
 | creds location | `--creds-dir` / `AUTHSETUP_CREDS_DIR` | see README §credentials |
 
@@ -268,3 +304,21 @@ cadence:
 Never commit these files (they are 0600 and outside any repo by default). After
 rotating, the redacted compliance journal records the exchange for your audit
 trail.
+
+---
+
+## 11. Adding users
+
+**Humans (your end users)** self-register at the hosted login page `run` step 04
+stands up: `{base}/login/{service}-users` (i.e. `POST /organizations/{service}-users/auth/register`).
+Signup is enabled with a default team + default role, so a new human lands with
+the baseline permissions automatically. Your own backend may also create users
+via the auth API/SDK during its signup flow — that is an application concern.
+
+**Services (mesh consumers)** self-register with `authsetup connect <you>` or the
+provider's published `register_url` from `run 08`.
+
+There is **deliberately no `authsetup add-user` command.** The mesh is self-serve
+by design and `authsetup` reconciles from config — a hand-added user would live
+nowhere in config and drift. Point humans at the hosted login page; point services
+at `connect`.

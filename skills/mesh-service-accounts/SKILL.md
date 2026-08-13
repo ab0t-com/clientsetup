@@ -7,6 +7,8 @@ description: Register services as consumers of other services in the ab0t auth m
 
 Register one service as a **consumer** of another service in the ab0t auth mesh.
 
+> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+
 ## Core Concept
 
 Services in the mesh have separate orgs and separate JWT audiences. Service A's user JWT (`aud=service-a`) is rejected by Service B (`aud=service-b`). To make cross-service calls, the consumer registers a **service account** under the provider, gets its own **API key** with scoped permissions, and sends that key via `X-API-Key` header.

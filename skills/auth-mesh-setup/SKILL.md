@@ -7,6 +7,20 @@ description: Onboard any service to the ab0t Auth Mesh using the authsetup binar
 
 Onboard any service to Auth Mesh using the `authsetup` binary. The system is config-driven, idempotent, and environment-aware. Every command reconciles `config/*.json` (desired state) against auth — there is no `update` command; edit config and `run` again.
 
+### The three orgs authsetup creates (know which is which)
+
+Onboarding gives your service **three** orgs, for three different audiences:
+
+| Org (slug) | Who it's FOR | Login-config here | How they get in |
+|---|---|---|---|
+| `{service}` | your **master workspace** (admin) | the hosted login page | you, the operator |
+| `{service}-users` | your **END USERS — humans** who sign into your product | signup | self-serve at the hosted login page |
+| `{service}-api-consumers` | **MESH CONSUMERS — other services** that call your API | signup | `authsetup connect` / the published `register_url` |
+
+Two directions: you **PROVIDE** (`run`; step 08 opens your API) and you **CONSUME**
+(`providers` → `connect`; step 07). The word **"consumer" always means another service,
+never a human** — say "mesh consumer (other service)" or "consume an upstream provider".
+
 ## Step-by-Step: Onboarding a New Service
 
 ### 1. Install the `authsetup` binary
@@ -111,6 +125,9 @@ Change:
 - `branding.page_title` — your service name
 - `content.welcome_message` — what users see on the login page
 - `security.post_logout_redirect_uri` — your service's URL
+- `registration.default_landing` (optional) — `"workspace"` to land users
+  directly in their own workspace org on login (requires
+  `workspace-per-user`; default `"parent"`). See [Org Structures](#org-structures-end_usersorg_structure).
 
 ### 5. Run the setup
 
@@ -129,7 +146,7 @@ Global flags (`--config-dir`, `--dry-run`) go BEFORE the subcommand. `run` execu
 | 01 | Creates service org, admin, permissions, API key | `permissions.json` | `{service}.json` |
 | 02 | Registers OAuth client for frontend | `oauth-client.json` | `oauth-client.json` |
 | 03 | Configures hosted login page + invitation-link landing redirect | `hosted-login.json` (+ `oauth-client.json` for smart defaults) | `hosted-login.json` |
-| 04 | Creates end-users org + default team with auto-join | `permissions.json` | `end-users-org.json` |
+| 04 | Creates end-users org (your **human end users**) + default team with auto-join | `permissions.json` | `end-users-org.json` |
 | 05 | Verifies everything | all credentials | -- |
 | 06 | E2E test: registers user, checks permissions | `end-users-org.json` | -- |
 
@@ -170,14 +187,14 @@ Service Org (myservice)              <- step 01
 +-- admin account + API key
 +-- permission schema registered
 |
-+-- End-Users Org (myservice-users)  <- step 04
++-- End-Users Org (myservice-users)  <- step 04   [YOUR END USERS: humans who sign in]
 |   +-- Default Team                    <- holds default_grant permissions
 |   |   +-- new users auto-join
 |   +-- User A (member -> team -> permissions)
 |   +-- User B (member -> team -> permissions)
 |   +-- OAuth client + hosted login
 |
-+-- API Consumers Org (step 08, optional)
++-- API Consumers Org (myservice-api-consumers, step 08, optional)   [MESH CONSUMERS: other services calling your API]
     +-- Read-Only team (default auto-join)
     +-- Standard team (upgrade tier)
 ```
@@ -185,10 +202,15 @@ Service Org (myservice)              <- step 01
 ### Permission Flow
 
 ```
-User registers -> joins end-users org -> auto-joins Default Team -> inherits team permissions
+A HUMAN END USER registers -> joins end-users org -> auto-joins Default Team -> inherits team permissions
 ```
 
 No webhooks, cron, callbacks, or per-user grants. Zanzibar resolves it at check time.
+
+**Adding users?** Humans self-register at the hosted login page (`/login/{service}-users`);
+other services self-register as mesh consumers via `authsetup connect` or step 08's
+`register_url`. There is deliberately no manual add-user command — the mesh is self-serve
+and `authsetup` reconciles from config.
 
 ## Org Structures (`end_users.org_structure`)
 
@@ -249,6 +271,42 @@ End-Users Org (myservice-users)
 Each user is owner of their own workspace. Cross-user isolation enforced by
 existing Zanzibar permission boundary — Bob cannot see or touch Alice's
 workspace.
+
+### Land users in their workspace (`registration.default_landing`)
+
+By default a logged-in user lands on the shared end-users (parent) org and has
+to switch into their workspace manually. Set `registration.default_landing =
+"workspace"` in `config/hosted-login.json` so that **login** scopes the token
+straight to the user's own workspace org — no org-switch step:
+
+```json
+{
+  "registration": {
+    "default_landing": "workspace"
+  }
+}
+```
+
+- Enum: `"workspace" | "parent"` (case-sensitive, default `"parent"` =
+  today's behavior). Invalid values are rejected.
+- **Prerequisite:** `org_structure.pattern = "workspace-per-user"` — there must
+  be a workspace to land in. It does nothing (and has nothing to scope to)
+  under `flat`, so set the two together.
+- Applies to **login** only. Registration always lands on the parent (the
+  workspace is materialized just after signup), so the first login right after
+  signup may still land on the parent until the workspace exists — it resolves
+  on the next login and never errors (async-safe parent fallback).
+
+Step 04 writes it into the end-users org's login-config. An operator can also
+change it live later without re-running setup — `PUT
+/organizations/{end_users_org_id}/login-config` is a partial **deep-merge**, so
+send just the one field:
+
+```bash
+curl -X PUT "$AUTH_URL/organizations/$EU_ORG_ID/login-config" \
+  -H "Authorization: Bearer $ADMIN_EU_TOKEN" -H 'Content-Type: application/json' \
+  -d '{ "registration": { "default_landing": "workspace" } }'
+```
 
 ### Backward compat (very important)
 

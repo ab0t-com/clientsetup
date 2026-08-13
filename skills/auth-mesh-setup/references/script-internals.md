@@ -74,7 +74,7 @@ If `security.accept_invite_allowed_origins` is empty/missing, the step derives i
 **Pre-flight check:** When `accept_invite_url` / `accept_invite_error_url` is configured but its origin isn't in the (resolved) allowlist, the step prints a warning pointing at the right config line. The auth service would otherwise reject the PUT with HTTP 400 — the warning catches it before the network round-trip.
 
 **Gotchas:**
-- `PUT` replaces the entire login config — not a merge/patch
+- `PUT` **deep-merges** onto the stored login config (fields you send overwrite; nested objects merge; omitted fields are preserved). Step 03 sends the whole `hosted-login.json`, so it is authoritative for the fields it manages, but the endpoint itself does not drop unrelated keys.
 - Verification HTTP codes are stored in output file for debugging
 - Login page is immediately available after PUT
 - The smart-default origin extraction parses each redirect_uri into a `scheme://host` origin. IPv6 hosts inside brackets are handled cleanly; entries that don't match (no scheme, malformed) are silently skipped rather than aborting the whole step.
