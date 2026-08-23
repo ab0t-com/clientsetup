@@ -34,7 +34,7 @@ Lives in `<consumer>/output/setup/config/clients.d/`. `run 07` auto-discovers AL
     "service_name": "Integration Service",
     "customer_org_name": "Integration Service - Billing Customer",       // "{Consumer} - {Provider} Customer"
     "customer_org_slug": "billing-customer-integration-service",         // "{provider}-customer-{consumer}" — unique across auth
-    "service_account_email": "mike+integration-billing@ab0t.com",        // convention "{consumer}@{provider}.customers" OR mike+... ; NOT a real inbox
+    "service_account_email": "svc+integration-billing@example.com",      // convention "{consumer}@{provider}.customers" OR a +tagged inbox ; NOT a real address
     "service_account_password": "<strong, generated — never commit-echoed>"  // used only at registration
   },
   "permissions": ["billing.read","billing.write.usage","billing.cross_tenant"],  // must exist in the provider's permissions.json
