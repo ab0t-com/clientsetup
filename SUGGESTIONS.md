@@ -51,6 +51,74 @@ acting.
 
 ---
 
+## Open: correctness gaps
+
+- **P0 — `service.audience` is parsed and never sent, and the resulting
+  default is IRREVERSIBLE.** Every service's `permissions.json` declares
+  `service.audience`; the Go loader binds it at
+  `setup-go/internal/config/config.go:32` and **nothing reads it** —
+  `grep -rn 'service_audience\|ServiceAudience' setup-go --include='*.go'`
+  and `grep -rn '\.Audience' setup-go --include='*.go'` are both empty, and
+  `CreateOrgRequest` (`setup-go/internal/api/client.go:338-345`) has no such
+  field, so step 01 (`internal/steps/s01_s04.go:127-131`) creates the service
+  org without it. The auth server then falls back to `LOCAL:{org_id}` silently
+  (`auth/output/appv2/services/organization/org_service.py:88-105`) — and that
+  field is **immutable after creation**
+  (`models/organization.py:120`, `org_service.py:349-351`), so no re-run of any
+  step can ever repair it and there is no API that can. **The retired bash kit
+  DID send it** (`scripts/01-register-service-permissions.sh:184-192`) — this is
+  a regression introduced by the Go rewrite. Live effect: four mesh service org
+  trees (`audit`, `resource`, `banking`, `schema-service`) mint
+  `aud: ["LOCAL:{uuid}"]` while their services enforce a service-name audience;
+  audit's entire customer base is locked out by it. Sketch of the fix:
+  (a) add `ServiceAudience string \`json:"service_audience,omitempty"\`` to
+  `CreateOrgRequest` and pass `p.Service.Audience` in step 01;
+  (b) decode it on `Org` (`client.go:330-336`) so the CLI can read back what the
+  server stored;
+  (c) **fail the run** when `service.audience` is absent or malformed, and when
+  an org adopted by slug (`s01_s04.go:118-124`) carries a *different* audience —
+  that one check would have surfaced all four broken services on their next run;
+  (d) write `service_audience` back into the credential file, which
+  `scripts/validate-config.sh:537-540` and
+  `intergration/output/setup/schema/credentials-service.schema.json:14` both
+  still expect and the bash kit used to produce.
+  **Note the trap:** the auth server's slug→audience auto-derivation is *not* a
+  substitute. It derives from the org slug (= `service.id`), and `service.id` ≠
+  `service.audience` for `resource`/`resource-service`,
+  `banking`/`banking-service`, `billing`/`billing-service`,
+  `payment`/`payment-service` — so for those four it produces the **wrong**
+  audience, not the declared one.
+  Full investigation, evidence and remediation plan:
+  `auth/output/tickets/20260823_service_audience_never_set_by_setup/`
+  (one-command reproduction: `scan_service_audience.sh` in that directory).
+
+- **`scripts/__backfill-service-audience.sh` is a foot-gun, not a repair tool.**
+  It is the only mechanism anywhere that can change `service_audience` on an
+  existing org, and it hardcodes `SERVICE_AUDIENCE="integration-service"`
+  (`:22`) plus dev/prod org ids (`:29-35`) and writes DynamoDB with an
+  unconditional `SET` (`:63-68`). Pointed at any other service's org it silently
+  stamps `integration-service` on it. It is `__`-prefixed (out of the runnable
+  set) but discoverable, and it *looks* like the answer to the bug above.
+  Suggest: archive it with a header pointing at the supported route, or strip the
+  hardcoded audience and org ids so it cannot run unparameterised. Ideally the
+  capability moves server-side (a privileged, audited, null→value-only setter) —
+  a client-side setup tool holding production datastore credentials is the wrong
+  shape.
+
+- **Two more `permissions.json` keys are parsed-or-declared and never read.**
+  `roles[].permissions` — `DefaultGrantIDs` (`internal/config/config.go:96-105`)
+  builds the default team from `permissions[].default_grant`, and `DefaultRole`
+  (`:109-121`) reads a role only for its **id**, so a role's permission list
+  grants nothing (this already caused one wrong root-cause diagnosis on the audit
+  service). And `multi_tenancy` — declared by all nine in-tree services, with
+  `"enforcement": "strict"` and a `cross_tenant_permission`, and
+  `grep -rn 'multi_tenancy\|MultiTenancy' setup-go --include='*.go'` is **empty**.
+  Suggest the general antidote: **a top-level config key that no code path reads
+  must fail `validate-config.sh`.** A config file that a tool reads only part of
+  gives readers no way to tell configuration from documentation.
+
+---
+
 ## Open: robustness gaps
 
 - **Inconsistent `set` flags across scripts.**
