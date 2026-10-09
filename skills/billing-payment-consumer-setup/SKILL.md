@@ -199,6 +199,3 @@ Net-new consumers (no prior sub-org) never hit this.
 - `mesh-service-accounts` — general consumer mechanism + references/*.md.
 - `billing-payment-integration` — runtime proxy routes, Stripe, webhooks.
 - `authsetup-cli` — full binary surface + reconcile model.
-- Reference configs: `resource/output/sandbox-platform/setup/config/clients.d/{billing,payment}.json`.
-- Migration ticket: `~/infra/infra/ops/tickets/20260703_mesh_client_authsetup_migration/` (worklog = the gotcha evidence).
-- Ticket c3a8: `intergration/output/tickets/open/2026-07-03-c3a8-connect-billing-payment-consumer-accounts/{TICKET,DISCUSSION}.md`.

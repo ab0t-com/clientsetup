@@ -331,8 +331,7 @@ Clients asking about these patterns today: tell them "coming soon, use
 
 ### Implementation reference (for the curious)
 
-Auth service module: `appv2/event_handlers/workspace_provisioning.py`. Mirrors
-the existing `zanzibar_sync.py` shape — registered at app startup, subscribes
+Handled by an in-process auth-service event handler: registered at app startup, subscribes
 to `auth.user.registered`, runs in-process, best-effort error handling.
 Workspaces are NOT a new primitive — they're nested orgs with
 `settings.type = "user_workspace"` and `settings.owner_user_id = <user_id>`.

@@ -53,8 +53,7 @@ curl -X POST https://auth.service.ab0t.com/api-keys/ \
 > genuine multi-org gateway that needs `billing.cross_tenant`, the provider must
 > add your account to an explicit `default:false`, `privileged_ack:true`
 > "Cross-Tenant (invite)" tier first (see "Re-runs / rotation" below and
-> `mesh-consumer-account-sop`). Requesting it before you hold it → 403. Ref:
-> ticket `20260706_cross_tenant_privilege_guardrails`.
+> `mesh-consumer-account-sop`). Requesting it before you hold it → 403.
 
 Save `key` securely — it is not retrievable again.
 

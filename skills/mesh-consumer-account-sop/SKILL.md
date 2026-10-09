@@ -83,5 +83,3 @@ Wire into the consumer's `production/.env.production` + `.env.production.templat
 - `mesh-service-accounts` — general consumer registration + `run 07` internals.
 - `billing-payment-consumer-setup` — billing/payment perm sets + the drop-in clients.
 - `auth-mesh-setup` / `authsetup-cli` — full service onboarding (run 01-08) + CLI flags.
-- RUNBOOK: `shared/ab0t-quota-go/RUNBOOK_connect_service_to_billing_payment_quota_20260703.md`.
-- Reference incident/learnings: `ops/tickets/20260703_mesh_client_authsetup_migration/` (the whole migration + `worklog_20260703_fable5_migration.md`).

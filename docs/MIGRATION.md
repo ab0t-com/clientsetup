@@ -60,8 +60,7 @@ Global flags (`--config-dir`, `--dry-run`) go BEFORE the subcommand.
 
 1. **Step 04 honors your configured default role** (`roles[].default` /
    `end_users.default_role`). The bash script computed it, printed it, and
-   then wrote the hardcoded string `member` into login config (bug #9 in
-   ticket 20260609). If you RELIED on the silent `member` behavior, set
+   then wrote the hardcoded string `member` into login config. If you RELIED on the silent `member` behavior, set
    `end_users.default_role: "member"` explicitly before migrating.
 2. **Reconcile-by-default.** Step 04 brings the default team's permission
    array up to the config's `default_grant` union on every run. Additive only.

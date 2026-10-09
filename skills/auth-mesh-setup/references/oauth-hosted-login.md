@@ -116,7 +116,7 @@ Allowlist rules (mirrors OAuth `redirect_uris`):
 - `https://app.example.com` and `http://app.example.com` are different origins (scheme is part of the comparison).
 - Auth service rejects writes where the URL origin is not in the allowlist.
 
-Auth-service code: `appv2/modules/hosted_login/api/accept_invite.py` (endpoint), `appv2/services/organization/invitation_service.py:lookup_invitation_by_code` (read-only state lookup). Ticket: `tickets/20260508_invitation_list_returns_empty_and_no_email/PART3`.
+Handled server-side by the auth service: an invitation-accept endpoint plus a read-only invitation state lookup.
 
 ## Hosted Login URLs
 

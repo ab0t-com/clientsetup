@@ -126,7 +126,21 @@
             "type": "array",
             "items": { "type": "string" },
             "description": "Permission IDs this permission implies (admin permissions typically imply all others)"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["org", "platform"],
+            "default": "org",
+            "description": "Who this permission reaches. \"org\" (default): acts inside one customer's org only — any org admin may grant it to their own people (including <service>.admin). \"platform\": reaches across your customers (operator kill switch, support view of every customer, a consumer gateway) — only your service's own org admins may grant it, one person at a time with a reason (authsetup grant-platform). Using \"scope\" on ANY permission declares the whole service: every other permission is then \"org\". Ids containing cross, global, platform, tenant_gateway, _wide, read_all or superadmin must be \"platform\"."
+          },
+          "privilege": {
+            "type": "string",
+            "enum": ["standard", "elevated", "cross_tenant"],
+            "description": "LEGACY (pre-scope). \"cross_tenant\" is read as scope \"platform\" when the service declares. Prefer \"scope\"."
           }
+        },
+        "patternProperties": {
+          "^_comment": { "type": "string" }
         },
         "additionalProperties": false
       }
