@@ -218,12 +218,14 @@ to commit.
 ```jsonc
 // ~/.authmesh/environments.json  (or <config-dir>/environments.json)
 {
-  "environments": {
-    "staging": { "auth_service_url": "https://auth.staging.ab0t.com" },
-    "dev":     { "auth_service_url": "https://auth.dev.internal" }   // override a built-in
-  }
+  "staging": "https://auth.staging.ab0t.com",
+  "dev":     "https://auth.dev.internal"      // override a built-in
 }
 ```
+
+`{"staging": {"url": "https://…"}}` works too. A file in the shape documented up to 0.5.25
+(`{"environments": {"staging": {"auth_service_url": "https://…"}}}`) loads from 0.5.26; before that it was
+ignored with a warning. `authsetup env` shows what was loaded.
 
 Promote dev → prod by re-running the same config against prod
 (`--env prod`); never copy credential files between environments.

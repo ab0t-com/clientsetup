@@ -4,6 +4,26 @@ All notable changes to `authsetup`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.26] — 2026-10-16 — security fix for `bot … --project`; environments.json shape
+Migration kit: `migrations/v0.5.25-to-v0.5.26/` (rows R1–R3). **Breaking: none for normal use. Upgrade promptly (R1).**
+### Security
+- **`bot install|uninstall --project` can no longer touch files outside the bot folder (please upgrade from 0.5.25).**
+  With `--project`, Ally and its install record (`.claude/bots/authmesh/.authsetup-install.json`) live in your
+  repository, so they arrive with `git clone`. In 0.5.25 a crafted record in a repository you cloned could make
+  `bot uninstall --project` delete or move files outside it (for example a key next to the checkout), and
+  `--force` would follow a symlinked `.skill-backups`. The record is now treated as untrusted: entries pointing
+  outside are ignored and reported, every remove/move/write is checked against the real (symlink-resolved) folder,
+  and a symlinked `.skill-backups` (or, with `--project`, a symlinked `.claude`, `agents`, `skills`, `bots` or bot
+  folder) is refused with a message. Normal installs are unchanged. If you ran `bot uninstall --project` in a
+  repository you did not create, check the files next to it.
+### Fixed
+- **`environments.json` in the shape our docs showed now loads.** `docs/USAGE.md` and Ally's SOP 03 showed
+  `{"environments": {"staging": {"auth_service_url": "https://…"}}}`, which authsetup ignored with a warning naming the
+  wrong field — so the env stayed on its built-in URL. That shape now loads (`auth_service_url` = `url`); the docs show
+  the simpler `{"staging": "https://…"}`. If you wrote the old shape, your override takes effect after upgrading —
+  check with `authsetup env`. A refused entry's warning now shows the shape to write. Still URLs only: a
+  secret-looking field refuses the entry, as before.
+
 ## [0.5.25] — 2026-10-16 — Ally, installed by the tool you already have
 Migration kit: `migrations/v0.5.24-to-v0.5.25/` (rows R1–R5). **Breaking: none** — additive.
 ### Added
