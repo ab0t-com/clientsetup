@@ -259,8 +259,10 @@ Promote dev → prod by re-running the same config against prod
 
 Agents get a first-class control surface:
 
-- **Load the skill** shipped in the binary: `authsetup skills install` (Agent
-  Skills standard — Claude Code, Codex, Gemini, opencode all read it). It
+- **Load the skills** shipped in the binary: `authsetup skills install` (Agent
+  Skills standard — Claude Code, Codex, Gemini, opencode all read it). In Claude
+  Code, `authsetup bot install` adds Ally, the setup assistant that follows the
+  SOPs with the user (offline, matched to this binary's version). It
   encodes the operating model, recipes, and the exact flag matrix so the agent
   doesn't guess. Copy NEXT lines as printed — they carry the `--env` you used.
 - Everything is non-interactive-safe: no command ever blocks on a prompt

@@ -4,7 +4,34 @@ All notable changes to `authsetup`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — 0.5.24 — Schema register is owner-only and self-explaining
+## [0.5.25] — 2026-10-16 — Ally, installed by the tool you already have
+Migration kit: `migrations/v0.5.24-to-v0.5.25/` (rows R1–R5). **Breaking: none** — additive.
+### Added
+- **`authsetup bot install | status | uninstall` (R1).** Installs Ally — the auth mesh setup assistant for Claude Code
+  (an agent, its routing skill, 17 plain-language SOPs, GAPS, VERSION and its companion skills) — from a copy
+  embedded in the binary: offline, no `curl | sh`, and matched to this authsetup version. Same layout as the bots
+  repo's installer (`~/.ab0t/bots/authmesh/`, `~/.claude/agents/ally.md` and `~/.claude/skills/<name>` as links;
+  knobs `CLAUDE_HOME`, `AB0T_BOTS_HOME`), so Ally installed either way is identical. `--project` installs into
+  `./.claude/` with relative links; `--dry-run` writes nothing; re-running is a no-op. An install record (version +
+  a checksum per file) lets `bot status` report changed/missing files and links (exit 3) and `bot uninstall` remove
+  only what it installed. A file you changed stops the install (exit 1, nothing written); `--force` moves it to
+  `.skill-backups/` first — never deleted. `--json` on all three.
+- `--project` flag (bot).
+### Changed
+- **`skills install` installs every bundled client skill (R2)**, not only `authsetup-cli`, then points at
+  `authsetup bot install`. The bundled skills are now ONE copy — the bots repo's (`shared/bot/authmesh/skills/`) — so
+  the binary's `authsetup-cli` skill gained `--env` on its backfill examples and the `doctor --strict` wording.
+  YAML folded descriptions show in `skills list`.
+- **`update` names the Ally refresh (R3)** when Ally was installed by an older authsetup.
+- **Help text (R4, R5):** `destroy` no longer suggests `rm -r <creds-dir>` — it names only that env's `*.<env>.json`
+  files (the folder holds every environment, prod included); `up --help` no longer says test-user cleanup is missing
+  (step 06 removes its test user since 0.5.24). The top-level help lists `skills` and `bot`.
+### Build
+- `embed-bot.sh` (`make embed-bot`, run first by `build.sh`) copies the canonical `shared/bot/authmesh/` into
+  `internal/bot/authmesh/`; a test fails when the embedded copy differs from the canonical tree (skipped, saying why,
+  in a checkout without the monorepo — the committed copy then ships).
+
+## [0.5.24] — 2026-10-16 — Schema register is owner-only and self-explaining
 Migration kit: `migrations/v0.5.23-to-v0.5.24/` (rows R1–R19 referenced below).
 ### Security
 - **Credentials go only to the auth URL you gave (R18).** authsetup no longer sends a request — and so no

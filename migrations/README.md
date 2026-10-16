@@ -14,4 +14,5 @@ Crossing several versions? Run each kit's checker in order.
 
 | Kit | Summary |
 |---|---|
+| [`v0.5.24-to-v0.5.25/`](v0.5.24-to-v0.5.25/) | **Additive (breaking: none).** `authsetup bot install\|status\|uninstall` installs Ally (the setup assistant) from the binary — offline, version-matched; `skills install` installs every bundled client skill; `update` names the Ally refresh; `destroy` help names only the env's `*.<env>.json` files (never the whole credentials folder) |
 | [`v0.5.23-to-v0.5.24/`](v0.5.23-to-v0.5.24/) | Permission schema registered only by the service org; ownership refusals explained (name taken / no owner recorded) and checked before anything is created; NEXT lines keep the target; credentials go only to the auth URL you gave (never to another origin a server points at); `doctor` signs in only with `--strict`; plus output-wording changes |

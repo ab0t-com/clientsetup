@@ -1,72 +1,57 @@
 # Manual HTTP flow (what `authsetup connect` automates)
 
-Use this when the binary can't run (a non-Go/other-language client, no install
-rights) or you want to see exactly what happens. `connect` does these calls with
-retries, idempotency, and a redacted journal — prefer it when available.
+Use this only when the binary cannot run (no install rights, an unusual platform) or you want to see
+exactly what happens. `connect` does the same calls with retries, idempotency, the production guard and
+a redacted journal; prefer it. The examples use dev; production is `https://auth.service.ab0t.com`.
 
-The provider ran `run 08` once, which created a `{service}-api-consumers` org
-with `signup_enabled` and a default tier team you auto-join on registration.
+The provider opened self-serve once (its `run 08` with `registration.signup_enabled: true`), which made
+a `{service}-api-consumers` org whose default tier team you join on registration.
 
-## 0. (optional) Discover the provider
+## 0. Discover the provider (optional)
 
 ```sh
-curl -s https://auth.service.ab0t.com/mesh/providers | jq .
-# or one provider (resolves even if unlisted):
-curl -s https://auth.service.ab0t.com/mesh/providers/billing | jq .
+curl -s https://auth.dev.ab0t.com/mesh/providers | jq .
+curl -s https://auth.dev.ab0t.com/mesh/providers/billing | jq .     # one provider, even if unlisted
 ```
+Take `consumer_registration.org_slug`, `.register_url`, and the default tier's `.permissions`.
 
-Take `consumer_registration.org_slug`, `.register_url`, and a tier's
-`.permissions`.
+## 1. Register a consumer account (no provider credentials)
 
-## 1. Register a consumer account (no provider creds)
-
-Org-scoped register — the same endpoint a human uses for hosted-login signup,
-called with a non-human email. Auto-joins the org's default tier team.
-
+The org-scoped register endpoint, called with a non-human address. It joins the default tier team.
 ```sh
-curl -X POST https://auth.service.ab0t.com/organizations/billing-api-consumers/auth/register \
+curl -s -X POST https://auth.dev.ab0t.com/organizations/billing-api-consumers/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"my-svc@my-org.consumers","password":"SecurePass2026@"}'
-# -> {"access_token":"...", "user_id":"..."}
+  -d '{"email":"my-svc@my-org.consumers","password":"<a long random password you generate>"}'
+# -> {"access_token": "...", "user_id": "...", ...}
 ```
-
-Store the password in your own secrets manager — you need it to log in again.
+Keep the password in your secrets manager; you need it to sign in again. Never put it in a script you
+commit.
 
 ## 2. Mint a scoped API key
 
-Request permissions ⊆ the tier. Auth **403s** any permission your team
-membership doesn't grant ("Cannot create API key with permissions you don't
-hold"). Request exactly the default tier's published permissions.
-
+Ask for permissions that are a subset of your tier (the default tier's published list). The auth
+service refuses anything you do not hold (`403 … Cannot create API key with permissions you don't hold`).
 ```sh
-TOKEN=<access_token from step 1>
-curl -X POST https://auth.service.ab0t.com/api-keys/ \
-  -H "Authorization: Bearer $TOKEN" \
+curl -s -X POST https://auth.dev.ab0t.com/api-keys/ \
+  -H "Authorization: Bearer <access_token from step 1>" \
   -H "Content-Type: application/json" \
   -d '{"name":"my-svc -> billing","permissions":["billing.read","billing.read.accounts"]}'
-# -> {"id":"...","key":"ab0t_sk_live_...","permissions":[...]}   shown ONCE
+# -> {"id": "...", "key": "ab0t_sk_live_...", "permissions": [...]}   the key is shown ONCE
 ```
+Store `key` in your secrets manager straight away; it cannot be retrieved again.
 
-> **Privileged perms are NOT in the default tier.** `cross_tenant` / `cross_org` /
-> `global.*` cross tenant boundaries and are **explicit-only** — a provider's
-> `default:true` / open-signup tier never carries them. If your service is a
-> genuine multi-org gateway that needs `billing.cross_tenant`, the provider must
-> add your account to an explicit `default:false`, `privileged_ack:true`
-> "Cross-Tenant (invite)" tier first (see "Re-runs / rotation" below and
-> `mesh-consumer-account-sop`). Requesting it before you hold it → 403.
-
-Save `key` securely — it is not retrievable again.
+A permission that reaches across the provider's customers is never in a default tier. If your service
+genuinely acts for many customers' orgs, the provider must first move your account into its
+invite-only tier (Ally SOP 12 step 4 is the provider's side); asking before that gets a `403`.
 
 ## 3. Use it
 
 ```sh
-curl -H "X-API-Key: ab0t_sk_live_..." https://billing.service.ab0t.com/...
+curl -s -H "X-API-Key: $BILLING_SERVICE_API_KEY" https://<billing URL for this environment>/health
 ```
 
-## Re-runs / rotation
+## Later
 
-To re-authenticate later, `POST /auth/login {email,password}` (the account you
-made in step 1), then repeat step 2. Revoke a key with
-`DELETE /api-keys/{id}`. Keys minted for higher tiers require the provider to
-add your account to that tier's team first (`mesh-consumer-account-sop`,
-"Upgrading a Consumer's Tier").
+Sign in again with `POST /auth/login {email, password}` (the account from step 1) and repeat step 2 to
+mint a new key; revoke an old one with `DELETE /api-keys/{id}` using that same sign-in. A key for a
+higher tier needs the provider to add your account to that tier's team first.

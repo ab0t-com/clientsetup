@@ -1,115 +1,82 @@
-# Config Schema — clients.d/*.json
+# `config/clients.d/<provider>.json` — the in-house consumer file
 
-Each provider the consumer wants to call gets one JSON config file.
+Use this only when you run **both** services and hold the provider's admin credentials file (for
+example Acme's `invoicer` calling Acme's own `reports` service). Everyone else uses
+`authsetup --env <env> connect <provider> --as <you>` and needs no file at all (Ally SOP 11).
 
-## Complete Schema
-
-```json
-{
-    "provider": {
-        "service_id": "billing",
-        "service_name": "Billing Service",
-        "credentials_path": "~/.authmesh/billing/billing.json",
-        "service_url": "http://localhost:8002"
-    },
-    "client": {
-        "service_id": "sandbox-platform",
-        "service_name": "Sandbox Platform",
-        "customer_org_name": "Sandbox Platform - Billing Customer",
-        "customer_org_slug": "billing-customer-sandbox-platform",
-        "service_account_email": "sandbox-platform@billing.customers",
-        "service_account_password": "CHANGE_ME_strong_password"
-    },
-    "permissions": [
-        "billing.read",
-        "billing.read.accounts",
-        "billing.read.transactions",
-        "billing.cross_tenant"
-    ],
-    "api_key": {
-        "name": "sandbox-platform-billing-backend",
-        "rate_limit": 10000,
-        "metadata_purpose": "Backend API access for Sandbox Platform to proxy billing data on behalf of authenticated users"
-    }
-}
-```
-
-## Field Reference
-
-### provider section
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `service_id` | Yes | Provider's identifier in auth (matches their `permissions.json` service.id) |
-| `service_name` | Yes | Human-readable name (displayed in logs and summaries) |
-| `credentials_path` | Yes | **Absolute path** to provider's credential file (created by the provider's own auth setup). Contains admin email/password and org ID |
-| `service_url` | Yes | Provider's API base URL. Used in output file for reference, not during registration |
-
-### client section
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `service_id` | Yes | Consumer's identifier |
-| `service_name` | Yes | Consumer's display name |
-| `customer_org_name` | Yes | Name for the sub-org created under the provider. Convention: `"{Consumer} - {Provider} Customer"` |
-| `customer_org_slug` | Yes | URL-safe slug for the sub-org. Convention: `"{provider}-customer-{consumer}"`. Must be unique across auth |
-| `service_account_email` | Yes | Email for the service account. Convention: `"{consumer}@{provider}.customers"`. Not a real email — just an identifier |
-| `service_account_password` | Yes | Password for the service account. Only used during registration (login to create API key). Not used at runtime |
-
-### permissions array
-
-List of permission IDs the API key should carry. These must be permissions the provider has registered in auth.
-
-Format: `{provider}.{action}.{resource}`
-
-Common patterns:
-- `billing.read` — base read access
-- `billing.read.accounts` — read specific resource
-- `billing.cross_tenant` — access data across orgs (essential for gateway services)
-
-### api_key section
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Human-readable key name. Convention: `"{consumer}-{provider}-backend"`. Shown in auth dashboard |
-| `rate_limit` | Yes | Requests per hour. 10000 is a reasonable default for backend-to-backend calls |
-| `metadata_purpose` | No | Description of what the key is used for. Stored in key metadata for auditing |
-
-## Naming Conventions
-
-```
-customer_org_name:       "{Consumer Name} - {Provider Name} Customer"
-customer_org_slug:       "{provider}-customer-{consumer}"
-service_account_email:   "{consumer}@{provider}.customers"
-api_key.name:            "{consumer}-{provider}-backend"
-```
-
-Examples for sandbox-platform consuming billing:
-```
-customer_org_name:       "Sandbox Platform - Billing Customer"
-customer_org_slug:       "billing-customer-sandbox-platform"
-service_account_email:   "sandbox-platform@billing.customers"
-api_key.name:            "sandbox-platform-billing-backend"
-```
-
-Examples for analytics consuming payment:
-```
-customer_org_name:       "Analytics Service - Payment Customer"
-customer_org_slug:       "payment-customer-analytics"
-service_account_email:   "analytics@payment.customers"
-api_key.name:            "analytics-payment-backend"
-```
-
-## File Location
-
-Drop one file per provider into the `clients.d/` directory inside your config dir:
-
+One file per provider, in your config directory:
 ```
 config/
 └── clients.d/
-    ├── billing.json      ← one file per provider
-    ├── payment.json
-    └── analytics.json
+    ├── reports.json
+    └── archive.json
+```
+`authsetup --env dev --config-dir ./config run 07` reconciles **every** `*.json` in that folder on each
+run. Preview first (`--dry-run`) and read the whole plan.
+
+## Example
+
+```json
+{
+  "provider": {
+    "service_id": "reports",
+    "service_name": "Acme Reports",
+    "credentials_path": "~/.authmesh/reports/reports.dev.json",
+    "service_url": "https://reports.acme.example"
+  },
+  "client": {
+    "service_id": "invoicer",
+    "service_name": "Invoicer",
+    "customer_org_name": "Invoicer - Reports Customer",
+    "customer_org_slug": "reports-customer-invoicer",
+    "service_account_email": "invoicer@reports.customers",
+    "service_account_password": ""
+  },
+  "permissions": [
+    "reports.read",
+    "reports.read.summaries"
+  ],
+  "api_key": {
+    "name": "invoicer-reports-backend",
+    "rate_limit": 10000,
+    "metadata_purpose": "Invoicer backend reads report summaries for its signed-in users"
+  }
+}
 ```
 
-Running `authsetup --config-dir ./config run 07` auto-discovers all `clients.d/*.json` files. Adding a new provider means dropping in one file and re-running — no script changes needed.
+## Fields
+
+**`provider`**
+
+| field | meaning |
+|---|---|
+| `service_id` | the provider's `service.id` (its `permissions.json`) |
+| `service_name` | display name, used in output |
+| `credentials_path` | **absolute** path to the provider's admin credentials file for the same environment (`<provider>.<env>.json`); `run 07` signs in as that admin to create your sub-org. Without it: `co-located mode needs the provider's creds file` — use `connect` instead |
+| `service_url` | the provider's base URL, recorded in your output file for reference |
+
+**`client`**
+
+| field | meaning |
+|---|---|
+| `service_id` | your service's id; keep it the **same** in every `clients.d` file so all your keys sit under one identity |
+| `service_name` | your display name |
+| `customer_org_name` | the sub-org created for you under the provider; convention `"{You} - {Provider} Customer"` |
+| `customer_org_slug` | its slug; convention `"{provider}-customer-{you}"`; must be unique |
+| `service_account_email` | an identifier, not a real inbox; convention `"{you}@{provider}.customers"` |
+| `service_account_password` | **leave empty**: the tool generates one and keeps it in your credentials folder. Never commit a real password here (SOP 17) |
+
+**`permissions`**: the permission ids your key should carry; each must exist in the provider's
+registered schema. Ask for the least you need. A cross-customer (`platform`) permission must be
+requested explicitly and sanctioned by the provider's admin (SOP 11 step 6: `privileged_tier`,
+`privileged_ack: true`, `privileged_perms`); it is never part of a default.
+
+**`api_key`**: `name` (convention `"{you}-{provider}-backend"`), `rate_limit` (requests per hour;
+10000 is a sensible backend default), optional `metadata_purpose` (stored with the key for audits).
+
+## What a run does with it
+
+For each file: creates (or finds) your sub-org under the provider and a service account in it, then
+mints a key holding exactly `permissions` and saves it to `~/.authmesh/<you>/<provider>-consumer.<env>.json`
+(0600). A re-run reuses the key while its recorded permissions match the file; any change mints a new
+key, and the old one keeps working until you revoke it (SOP 14).

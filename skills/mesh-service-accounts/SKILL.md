@@ -1,97 +1,102 @@
 ---
 name: mesh-service-accounts
-description: Register services as consumers of other services in the ab0t auth mesh network. Use when a service needs to call another service's API (cross-service calls), when setting up service-to-service authentication via API keys, when creating consumer service accounts and sub-orgs under provider services, when designing permissions for cross-service access, when writing clients.d config files, when running consumer registration (authsetup run 07) or API-consumer setup (authsetup run 08), when wiring up X-API-Key headers for mesh calls, when debugging 401/403 errors on cross-service requests, or when adding a new upstream provider to an existing consumer. Covers the full consumer registration lifecycle from permission design through config, registration, API key provisioning, client code, proxy routes, and env wiring.
+description: >-
+  Call another ab0t mesh service from your backend safely: get your service's own scoped API key,
+  send it as X-API-Key, take the customer's org from the validated user token, and proxy the result to
+  your frontend without leaking errors. Use when a service needs cross-service calls on the mesh
+  (billing, payment, audit, a partner's API, or another service of your own), when writing the
+  upstream client and proxy routes, when choosing between `authsetup connect` and the in-house
+  `clients.d` + `run 07` path, when wiring <PROVIDER>_SERVICE_URL / <PROVIDER>_SERVICE_API_KEY, or when
+  debugging 401/403/502/503 on a cross-service call. Procedures: Ally SOPs 11 and 14.
 ---
 
-# Mesh Service Accounts
+# Service-to-service calls on the mesh
 
-Register one service as a **consumer** of another service in the ab0t auth mesh.
+## What this is
 
-> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+Each service on the mesh has its own org and its own token audience, so a user's token for your
+service is (correctly) refused by every other service. To call another service, your backend uses its
+**own** scoped key, minted for that provider, and sends it as `X-API-Key`; the provider checks the key
+and its permissions with the auth service on every call.
 
-## Core Concept
-
-Services in the mesh have separate orgs and separate JWT audiences. Service A's user JWT (`aud=service-a`) is rejected by Service B (`aud=service-b`). To make cross-service calls, the consumer registers a **service account** under the provider, gets its own **API key** with scoped permissions, and sends that key via `X-API-Key` header.
-
-```
-Consumer Service                          Provider Service
-  │                                            │
-  │  user JWT → validate locally               │
-  │  extract org_id from JWT claims             │
-  │                                            │
-  │  X-API-Key: ab0t_sk_live_...  ────────────>│
-  │  GET /provider/{org_id}/resource            │
-  │                                            │
-  │                          provider validates │
-  │                          key via auth svc   │
-  │                          checks permissions │
-  │                                            │
-  │  200 { data }  <───────────────────────────│
-```
-
-## Auth Structure Created
+## The picture
 
 ```
-Auth Service
-└── Provider Org (e.g. billing)
-    └── Consumer - Provider Customer (sub-org, child of provider)
-        └── consumer@provider.customers (service account)
-            └── API key: provider.read.*, provider.cross_tenant
+browser ──(user token, aud=invoicer)──► your API ── validate token, take org_id from it
+                                           │
+                                           └──(X-API-Key: your key for billing)──► billing  GET /billing/<org_id>/balance
+                                                                                     │ validates the key + its permissions
+   browser ◄── your own JSON / generic error ◄──────────────────────────────────────┘
 ```
 
-The provider admin creates and controls the sub-org. The consumer only receives the API key.
+| question | answer |
+|---|---|
+| where does the key come from? | `authsetup --env <env> connect <provider> --as <you>` (normal), or `clients.d/<provider>.json` + `run 07` when you run both services yourself |
+| what can it do? | exactly the tier's permissions, fixed when minted; more means the provider moves you and you re-mint |
+| where does it live? | `~/.authmesh/<you>/<provider>-consumer.<env>.json` (0600, field `.api_key.key`), then your secrets manager |
+| whose data does a call touch? | the `org_id` you put in the path, which must come from the caller's validated token |
 
-## Workflow
+## Do this (the default path)
 
-### Adding a new provider to a consumer service
+```sh
+authsetup --env dev providers
+authsetup --env dev connect billing --as invoicer --dry-run
+authsetup --env dev connect billing --as invoicer
+authsetup --env dev status --verify
+```
+1. Put the two printed values in your backend env (`BILLING_SERVICE_URL`, `BILLING_SERVICE_API_KEY`).
+   Off production the URL is printed empty on purpose: ask the provider for that environment's address.
+2. Write one small client per provider: [references/client-patterns.md](references/client-patterns.md).
+3. Expose only what your frontend needs through your own routes:
+   [references/proxy-routes.md](references/proxy-routes.md).
+4. Running both services yourself? Declare the relationship in `config/clients.d/<provider>.json`
+   ([references/config-schema.md](references/config-schema.md)) and
+   `authsetup --env dev --config-dir ./config --dry-run run 07`, then the same without `--dry-run`.
 
-1. **Verify provider is registered** — provider must have run its service-permissions step (`authsetup --config-dir ./config run 01`)
-2. **Create config** — drop a `clients.d/<provider>.json` into the config dir. See [references/config-schema.md](references/config-schema.md)
-3. **Run registration** — `authsetup --config-dir ./config run 07` (re-runnable; reconciles every `clients.d/*.json`)
-4. **Wire API key** — add `<PROVIDER>_SERVICE_API_KEY` to `.env` and `docker-compose.yml`
-5. **Write client code** — create `app/<provider>_client.py`. See [references/client-patterns.md](references/client-patterns.md)
-6. **Add proxy routes** — wire routes in `main.py`. See [references/proxy-routes.md](references/proxy-routes.md)
-7. **Rebuild and test**
+The decision guide (tiers, upgrades, the in-house path, rotation) is `mesh-consumer-account-sop`;
+billing and payment specifics are `billing-payment-consumer-setup`.
 
-### Building a new consumer service from scratch
+## The rules, every call
 
-1. Run service registration for the new service — `authsetup --config-dir ./config run 01`
-2. Create the `config/` dir with a `clients.d/` subdir
-3. Drop a `clients.d/<provider>.json` into the config dir for each upstream provider
-4. Register consumers — `authsetup --config-dir ./config run 07`
-5. If the provider needs API consumers provisioned on its side, run `authsetup --config-dir ./config run 08`
-6. Follow "Adding a new provider" steps 4-7 above
+- **Never forward a user's bearer token** to another service: wrong audience, wrong permissions.
+- **Take `org_id` from the validated token**, never from the URL, the body or a header the browser sets.
+- **Keep the key server-side**: never in a frontend bundle, a log line, a ticket or a chat.
+- **Mask upstream errors**: log the provider's detail server-side; return a generic message.
+- **Fail closed**: if the provider or the auth service cannot answer, return `503`, never a success.
 
-## Key Files
+## What your customers notice
 
-| File / command | Purpose |
-|------|---------|
-| `clients.d/<provider>.json` | Config: what permissions the consumer needs |
-| `authsetup --config-dir ./config run 07` | Consumer registration: reconciles every `clients.d/*.json` (provider-agnostic) |
-| `authsetup --config-dir ./config run 08` | Provider side: provisions API consumers for the providing service |
-| `~/.authmesh/<provider>/` (0600) | Output: API key + service account info, stored outside any repo |
-| `app/<provider>_client.py` | Client: sends X-API-Key to upstream |
+- Nothing about keys. They see your pages; your backend fetches their data with your key, scoped to
+  their org.
+- When a provider is down they get your `503` / "try again", not the provider's internals. A
+  permission problem on *your* key is your bug: return `502` and fix the tier, do not show a `403` that
+  makes the customer think they lack access.
 
-## Permission Design
+## Common mistakes (and what you will see)
 
-- **Read-only by default** — consumers proxy data for display, not mutation
-- **Always include `cross_tenant` / `cross_org`** — consumers serve multiple user orgs through one API key
-- **Match provider's schema** — check provider's `permissions.json` for available permissions
-- **Format**: `{provider}.{action}.{resource}` (e.g., `billing.read.accounts`)
+| mistake | what you see | fix |
+|---|---|---|
+| key not set, or the wrong provider's key | `401` from the provider | the right `<PROVIDER>_SERVICE_API_KEY`; keys are per provider |
+| the tier lacks a permission | `403` naming the missing permission | ask the provider, then `connect --tier "<name>"` |
+| acting on a customer's org without the cross-customer tier | `403 … Access denied - different organization` (billing) | SOP 11 step 5 |
+| `org_id` taken from the URL | a customer can read another customer's data | take it from the token |
+| structlog kwargs on a stdlib logger | `TypeError: Logger._log() got an unexpected keyword argument` | see the logger note in client-patterns |
+| container calls `localhost` | `503` "unreachable" from your client | use the address reachable from the container |
 
-## Security Rules
+## Check it worked
 
-- **Never forward user JWT** to upstream — wrong audience, wrong permissions
-- **Never leak upstream errors** to browser — log server-side, return generic message
-- **Always inject org_id from validated JWT** — never from request params
-- **Consumer API key stays server-side** — browser never sees it
+```sh
+authsetup --env dev status --verify                                             # ● LIVE per connection
+curl -sS -H "X-API-Key: $BILLING_SERVICE_API_KEY" "$BILLING_SERVICE_URL/health"  # 200 with the key, 401 without
+```
+Then call one of your proxy routes with a real user token and expect `200`. Rotate or leave a provider
+with `disconnect` (SOP 14); never delete `~/.authmesh/<you>/`. Still stuck: `authsetup --env dev doctor
+--json`, `status --json` and the failing output to `platform-team@ab0t.com` (never a key).
 
-## References
+## SOPs (in `authmesh/`)
 
-- **[Config schema and field reference](references/config-schema.md)** — complete `clients.d/*.json` format
-- **[Client code patterns](references/client-patterns.md)** — `_headers()`, error handling, async HTTP
-- **[Proxy route patterns](references/proxy-routes.md)** — route handlers, org_id injection, error masking
-- **[Registration internals](references/registration-internals.md)** — what `authsetup run 07` does step by step
-- **[Mesh topology](references/mesh-topology.md)** — how services, orgs, audiences, and API keys relate
-- **[Env and docker config](references/env-config.md)** — environment variables and docker-compose passthrough
-- **[Troubleshooting](references/troubleshooting.md)** — common errors and fixes
+[06 wire it into your app](../../06_sop_system_wire_it_into_your_app.md) ·
+[11 using other services](../../11_sop_system_using_other_services.md) ·
+[14 keys](../../14_sop_system_keys_rotate_offboard_disconnect.md) ·
+[16 troubleshooting](../../16_sop_system_troubleshooting_and_recovery.md) ·
+[17 security rules](../../17_sop_system_security_rules.md)

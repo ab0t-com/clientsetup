@@ -1,85 +1,121 @@
 ---
 name: mesh-consumer-account-sop
-description: Operational SOP + field playbook for provisioning, adopting, or migrating a service's mesh CONSUMER accounts (billing / payment / audit / any provider) with the authsetup Go binary. Use when a mesh service needs its own scoped X-API-Key to call another service — to decide new-mint vs adopt-existing vs migrate, author clients.d/<provider>.json to schema, run `authsetup run 07` SAFELY (the isolate-not-abort .hold trick, the post-reset membership-gap gotcha that fakes a CREATE, seed-to-adopt for existing consumers, 5/min rate-limit pacing), verify existing keys are UNCHANGED, and wire the key into the service's prod env. This is the decision-tree + hard-won-gotchas layer; for the general mechanism see `mesh-service-accounts`, billing/payment perm specifics see `billing-payment-consumer-setup`, service onboarding (run 01-08) see `auth-mesh-setup`, CLI flags see `authsetup-cli`.
+description: >-
+  Give your service its own consumer account and scoped API key on another ab0t mesh service
+  (billing, payment, audit, or any partner that publishes tiers), then keep it healthy. Use when a
+  service needs to call another mesh service and asks "how do I get a key for <service>", "which tier",
+  "authsetup providers", "authsetup connect", "the provider is invitation only", "my key 403s",
+  "rotate or revoke a consumer key", "disconnect from a provider", or, for a team that runs several of
+  its own services, "consume my own service with clients.d and run 07". Covers choosing a tier,
+  previewing and connecting, wiring and verifying the key, moving up a tier, rotation and leaving.
+  Procedures live in the Ally SOPs 11 and 14; this skill is the decision guide.
 ---
 
-# Mesh Consumer Account SOP
+# Your service's consumer account on another mesh service
 
-> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+## What this is
 
-Give a service its own **scoped API key** to call another mesh service, using the `authsetup` Go binary (`~/.local/bin/authsetup`). One `clients.d/<provider>.json` per provider → `authsetup run 07` → a `<consumer>-consumer.prod.json` cred (0600, in `~/.authmesh/<consumer>/`) holding an `X-API-Key`.
+A **consumer** is a service that calls another service's API with its own key. You never need the
+provider's credentials: the provider publishes **tiers**, you connect, and the auth service mints a key
+holding exactly that tier's permissions, so each relationship is narrow, revocable and auditable.
 
-## 0. Decide the operation FIRST (the fork that prevents damage)
+## The picture
+
 ```
-Does the consumer ALREADY have a live key for this provider?
-├─ NO  → NEW MINT   (net-new: run 07 creates sub-org + SA + key). Cleanest.
-└─ YES → is its cred already in ~/.authmesh/<consumer>/<provider>-consumer.prod.json ?
-         ├─ YES → ADOPT   (run 07 reuses the key IF recorded perms == config; else mints fresh)
-         └─ NO  → SEED-TO-ADOPT   (copy the existing cred into ~/.authmesh first, THEN run 07 — or it creates a DUPLICATE)
+provider (e.g. billing)
+└── billing-api-consumers            ← the provider's "partners" org
+    ├── Read-Only Consumers (team)   ← default tier: anyone may join instantly
+    ├── <higher tier> (team)         ← the provider moves you here
+    └── your consumer account        ← created by `connect`; your key = its tier's permissions, fixed at mint
 ```
-Never run against prod without knowing which branch you're in. A wrong branch = duplicate org or a needless key rotation.
 
-## 1. Author `clients.d/<provider>.json` (the schema — get this exact)
-Lives in `<consumer>/output/setup/config/clients.d/`. `run 07` auto-discovers ALL `*.json` there.
-```json
-{
-  "provider": {
-    "service_id": "billing",                                  // provider's service.id (its permissions.json)
-    "service_name": "Billing Service",
-    "credentials_path": "/abs/path/to/~/.authmesh/billing/billing.prod.json",  // ABSOLUTE (no ~ — tilde-expansion risk); provider admin creds
-    "service_url": "http://billing-service-prod:8002"         // recorded only; the INTERNAL url the consumer calls
-  },
-  "client": {
-    "service_id": "integration-service",                      // the CONSUMER's identity — MUST match its other consumer creds
-    "service_name": "Integration Service",
-    "customer_org_name": "Integration Service - Billing Customer",       // "{Consumer} - {Provider} Customer"
-    "customer_org_slug": "billing-customer-integration-service",         // "{provider}-customer-{consumer}" — unique across auth
-    "service_account_email": "svc+integration-billing@example.com",      // convention "{consumer}@{provider}.customers" OR a +tagged inbox ; NOT a real address
-    "service_account_password": "<strong, generated — never commit-echoed>"  // used only at registration
-  },
-  "permissions": ["billing.read","billing.write.usage","billing.cross_tenant"],  // must exist in the provider's permissions.json
-  "api_key": { "name": "integration-service-billing-backend", "rate_limit": 10000,
-               "metadata_purpose": "Backend API access ..." }
-}
 ```
-**Permission rules by provider (memorize):**
-- **billing** → needs `billing.cross_tenant` (a gateway records usage under the END-USER's org, not its own).
-- **payment** → needs `payment.cross_org`. Omit `payment.admin` unless the consumer actually administers payment (a proxy does not).
-- **audit** → `audit.events.create` only; NO cross_tenant (ingest gates on suspension, not org).
-- **Identity consistency**: a consumer's billing + payment + audit configs must ALL use the same `client.service_id` (e.g. all `integration-service`), or you fragment its identity across sub-orgs.
-
-## 2. Validate → DRY-RUN GATE (never skip)
+Do you also run the provider yourself, in the same organisation, and hold its admin credentials file?
+├─ no  (the normal case) → `authsetup connect <provider> --as <you>`                 (SOP 11 steps 1–4)
+└─ yes (your own services calling each other) → `config/clients.d/<provider>.json` + `run 07`  (SOP 11 step 6)
+Provider shows "closed — invitation only"? → ask it for an invitation; there is no connect line until then.
 ```
-AS=~/.local/bin/authsetup; CFG=<consumer>/output/setup/config; CR=~/.authmesh/<consumer>
-$AS --env prod --config-dir $CFG --creds-dir $CR validate
-$AS --env prod --config-dir $CFG --creds-dir $CR --dry-run run 07
+
+## Do this (the default path)
+
+Write `--env` on every command; `authsetup` defaults to prod.
+```sh
+authsetup --env dev providers                              # one card per provider: tiers, permissions, the connect line
+authsetup --env dev connect billing --as invoicer --dry-run
+authsetup --env dev connect billing --as invoicer          # account + key; key saved 0600, never printed
+authsetup --env dev status --verify                        # ◐ WIRED → ● LIVE
 ```
-Read the plan. For the provider you're adding: **exactly** `create sub-org + SA + key` (new mint) OR `key already provisioned (id …)` (adopt). For every OTHER provider already set up: it MUST say adopt/reuse. **If an already-live provider shows CREATE → do NOT proceed blindly (see gotcha B).**
+1. Take the tier marked `[default — zero-touch]` unless you know you need more. Re-running `connect` is
+   safe (`… key … reused`). Use the same `--as` for every provider: one identity for all your keys.
+2. Wire the two values `connect` prints: `<PROVIDER>_SERVICE_URL` and `<PROVIDER>_SERVICE_API_KEY`. The
+   key stays in `~/.authmesh/<you>/<provider>-consumer.<env>.json` (field `.api_key.key`); move it into
+   your secrets manager without printing it. Off production the URL is left empty on purpose: ask the
+   provider for its address on that environment.
+3. At runtime send your key as `X-API-Key` (never a user's bearer token), take the customer's `org_id`
+   from the validated user token (never from the request), and keep the key server-side. The
+   `mesh-service-accounts` skill has a Python client and proxy-route pattern.
+4. Need more than the default tier? Tell the provider your consumer account (printed by `connect`) and
+   what your service does in one sentence. Once they have moved you:
+   `authsetup --env dev connect <provider> --as <you> --tier "<name>"`. A tier that reaches across the
+   provider's customers is always invite-only (SOP 12 step 4 is the provider's side). Billing and
+   payment specifics: `billing-payment-consumer-setup`.
 
-## 3. Run + validate + wire
+**The in-house path** (`clients.d` + `run 07`), only when you run both services and hold the provider's
+admin credentials file. One file per provider ([the schema](../mesh-service-accounts/references/config-schema.md)), then:
+```sh
+authsetup --config-dir ./config validate
+authsetup --env dev --config-dir ./config --dry-run run 07   # read the plan before anything changes
+authsetup --env dev --config-dir ./config run 07
 ```
-$AS --env prod --config-dir $CFG --creds-dir $CR run 07     # mints/reconciles
-# key lands: $CR/<provider>-consumer.prod.json
-curl -s -X POST https://auth.service.ab0t.com/auth/validate-api-key -H 'Content-Type: application/json' \
-     -d "{\"api_key\":\"$(python3 -c 'import json;print(json.load(open("'$CR'/<provider>-consumer.prod.json"))["api_key"]["key"])')\"}"
-# → valid:true, perms == config (DON'T print the key)
+`run 07` reconciles **every** file in `clients.d/`, so read the whole plan: a provider you already
+connected should show the key as already provisioned, not a create. A key is reused only while its
+permission list matches the file; changing the list mints a fresh key (the old one works until you
+revoke it). Leave `service_account_password` empty: the tool generates one and keeps it in your
+credentials folder. Never commit a password into that file.
+
+## What your customers notice
+
+- Nothing, when it works: your service calls the provider for them. If the provider is unreachable or
+  your key is refused, your API should answer `503` (or a clear "try again"), not leak the provider's
+  error text and never pretend it succeeded.
+- A revoked or rotated key stops working at the provider immediately (`401`); provider SDK caches may
+  keep a revoked key working for up to 60 s. Roll the new key out before you revoke the old one.
+- Data stays per customer as long as `org_id` always comes from the customer's validated token.
+
+## Common mistakes (and what you will see; full list: SOP 16, *Consumers*)
+
+| you see | do |
+|---|---|
+| `provider "x" did not grant every permission tier "y" requests — the default tier is zero-touch; …` | connect on the default tier, then ask the provider |
+| `tier "x" does not publish its permission set in the directory — …` | same |
+| `tier "Pro" not offered — available: …` | pick a listed name, or drop `--tier` |
+| `consumer account … already exists but the stored password did not authenticate — pass --email with a fresh address …` | it was created from another machine: use that machine's `~/.authmesh/<you>/`, or `--email` a fresh address |
+| `provider "x" has self-serve registration disabled — contact the provider for an invitation` | ask the provider |
+| `this auth service has no mesh provider directory yet (GET /mesh/providers → 404) — …` | wrong environment; try another `--env` |
+| `○ REGISTERED` in `status` with no key | an interrupted mint; re-run `connect` to adopt it |
+| `rate limited by the auth service (~5 requests/min); …` | wait a minute and re-run; it resumes |
+| `co-located mode needs the provider's creds file` (`run 07`) | you are not the provider; use `connect` |
+| your key `403`s on a call | the tier lacks that permission, or you minted before it was widened: reconnect |
+
+## Check it worked, rotate, leave
+
+```sh
+authsetup --env dev status --verify                              # ● LIVE per connection; ⨯ FAILED if a key was revoked
+curl -sS -H "X-API-Key: $BILLING_SERVICE_API_KEY" "$BILLING_SERVICE_URL/health"   # 200 with the key, 401 without
+authsetup --env dev disconnect billing --as invoicer --dry-run   # rotate / leave: preview what is revoked and archived
+authsetup --env dev disconnect billing --as invoicer             # type "billing" to confirm
+authsetup --env dev connect    billing --as invoicer             # new key, same tier; re-wire it
 ```
-Wire into the consumer's `production/.env.production` + `.env.production.template`: `<PROVIDER>_SERVICE_API_KEY=<key>` + `<PROVIDER>_SERVICE_URL=<internal url>`. Copy the value from the cred file (never echo). **Deploy (distribute + recreate container) = OWNER.**
+`disconnect` revokes the key and **moves** the local file to `~/.authmesh/<you>/.archive/`; nothing is
+deleted. Never delete `~/.authmesh/<you>/`: it holds every environment's credentials, prod included. A
+leaked key: revoke first, then rotate (SOP 14). Still stuck: send `authsetup --env <env> doctor --json`,
+`status --json`, the failing output and the latest `~/.authmesh/<you>/journal/*.jsonl` (redacted) to
+`platform-team@ab0t.com`; never a credentials file.
 
-## 4. Field playbook — the gotchas that bite (all learned live)
-- **A. `run 07` reconciles ALL `clients.d/*.json` at once** — not just the one you added. So a broken/gated OTHER provider can cause collateral mints. **Isolate**: temporarily rename the others (`mv billing.json billing.json.hold`), dry-run to confirm 1 change, `run 07`, then restore (`mv billing.json.hold billing.json`). Never leave them held.
-- **B. Post-reset membership gap → FALSE "CREATE".** If a provider was reset, its current admin may have lost membership of a *pre-reset* consumer sub-org. `run 07` finds sub-orgs via the provider admin's MyOrgs, can't see it, and plans a spurious **CREATE** (which would duplicate the sub-org + rotate the key). This is NOT a seed error. **Fix = one additive invite** (the sub-org's own SA invites the provider admin back as admin), THEN adopt. Until fixed, **isolate that provider (gotcha A) — do not let it CREATE.**
-- **C. Seed-to-adopt**: `authsetup migrate` imports ONLY the service cred. For an existing CONSUMER key to be adopted (not re-minted), its cred must be in `~/.authmesh/<consumer>/<provider>-consumer.prod.json` first. If the only copy is in `setup/credentials/`, copy it (as `.prod.json`) before `run 07`.
-- **D. Reuse is conditional**: `run 07` reuses a saved key ONLY when its recorded permission set == config. Any perm drift → fresh key (old stays valid; revoke after rollover). So don't edit perms unless you mean to rotate.
-- **E. Rate limit = 5 requests/minute** on auth. A mint is ~5 calls; run in one clean window. On HTTP 429, cool down ~65s and re-run (state reconciles). Don't hammer — you'll get partial failures mid-sequence.
-- **F. Always prove no collateral**: after `run 07`, confirm every OTHER consumer key's `key_id` (and ideally sha256) is UNCHANGED vs before. The mint must only ADD.
-- **G. Absolute `credentials_path`** (not `~`) in clients.d — dodges tilde-expansion, matches existing configs.
-- **H. Use the INSTALLED binary** (`~/.local/bin/authsetup`, via the repo `install.sh`) — never the raw `setup-go/release/` binary.
+## SOPs (in `authmesh/`)
 
-## 5. Verify it's really connected
-`~/.authmesh/<consumer>/` shows the `<provider>-consumer.prod.json`; the key `validate`s with the right perms; env has `<PROVIDER>_SERVICE_API_KEY`+`_URL`; and (post-deploy) a real consumer→provider call returns 2xx with `X-API-Key`. For payment/quota runtime wiring (Stripe, ab0t-quota-go), see the RUNBOOK + `billing-payment-integration`.
-
-## Related
-- `mesh-service-accounts` — general consumer registration + `run 07` internals.
-- `billing-payment-consumer-setup` — billing/payment perm sets + the drop-in clients.
-- `auth-mesh-setup` / `authsetup-cli` — full service onboarding (run 01-08) + CLI flags.
+[11 using other services](../../11_sop_system_using_other_services.md) ·
+[12 opening your service to others](../../12_sop_system_opening_your_service_to_others.md) ·
+[14 keys](../../14_sop_system_keys_rotate_offboard_disconnect.md) ·
+[16 troubleshooting](../../16_sop_system_troubleshooting_and_recovery.md) ·
+[17 security rules](../../17_sop_system_security_rules.md)

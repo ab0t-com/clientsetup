@@ -1,68 +1,52 @@
-# Client Code Patterns
+# Client code pattern (Python, async)
 
-How to write the Python client that calls an upstream mesh service using the consumer API key.
+One small client per upstream provider. It sends **your service's** key, never a user's token, and
+turns every upstream failure into one typed error your routes can map to a safe response.
 
-## Canonical Implementation
-
-Based on `billing_client.py` and `payment_client.py` from sandbox-platform.
+## The client
 
 ```python
 """
-Client for the {Provider} Service (port {port}).
+Client for the {Provider} service.
 
-Gateway pattern: backend proxies {provider} requests on behalf of
-authenticated users. The frontend never talks to {provider} directly.
-Backend injects org_id from the validated JWT — cannot be spoofed.
+Gateway pattern: your backend calls {provider} for authenticated users. The browser never talks to
+{provider} directly, and org_id always comes from the caller's validated token.
 """
 
-import httpx
 import os
-from typing import Dict, Any, Optional
+from typing import Any, Dict
+
+import httpx
 import structlog
 
 logger = structlog.get_logger()
 
 
 class {Provider}ServiceError(Exception):
-    """Structured error from {provider} service requests."""
+    """An upstream failure, already logged; map it to a generic response in your route."""
     def __init__(self, status_code: int, detail: str):
         self.status_code = status_code
         self.detail = detail
-        super().__init__(f"{Provider} service error ({status_code}): {detail}")
+        super().__init__(f"{Provider} service error ({status_code})")
 
 
 class {Provider}ServiceClient:
-    """Async HTTP client for the {provider} service."""
-
-    def __init__(self):
-        self.base_url = os.getenv(
-            "{PROVIDER}_SERVICE_URL",
-            "https://{provider}.service.ab0t.com"
-        ).rstrip("/")
-        self.api_key = os.getenv("{PROVIDER}_SERVICE_API_KEY", "")
+    def __init__(self) -> None:
+        self.base_url = os.environ["{PROVIDER}_SERVICE_URL"].rstrip("/")   # no silent default: fail at start-up
+        self.api_key = os.environ["{PROVIDER}_SERVICE_API_KEY"]            # from your secrets manager
         self.client = httpx.AsyncClient(timeout=15.0)
 
-    def _headers(self, forwarded_token: Optional[str] = None) -> Dict[str, str]:
-        """Build request headers.
-
-        Priority: forwarded token (if provided) > static API key > no auth.
-        API key format auto-detected:
-          - Contains '.' → JWT → Authorization: Bearer
-          - Otherwise → opaque → X-API-Key header
-        """
+    def _headers(self) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
-        if forwarded_token:
-            headers["Authorization"] = f"Bearer {forwarded_token}"
-        elif self.api_key:
-            if "." in self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
-            else:
-                headers["X-API-Key"] = self.api_key
+        if self.api_key.startswith("ab0t_sk_"):
+            headers["X-API-Key"] = self.api_key          # mesh service keys
+        else:
+            headers["Authorization"] = f"Bearer {self.api_key}"   # a token minted for this provider (e.g. client credentials)
         return headers
 
     @staticmethod
     def _extract_detail(response: httpx.Response) -> str:
-        """Extract error detail from upstream response."""
+        """For your server log only — never return this to the browser."""
         try:
             body = response.json()
             if isinstance(body, dict):
@@ -74,91 +58,60 @@ class {Provider}ServiceClient:
         text = (response.text or "").strip()
         return text[:500] if text else f"HTTP {response.status_code}"
 
-    async def _request(self, method: str, path: str,
-                       token: Optional[str] = None, **kwargs) -> Any:
-        """Make a request to the {provider} service."""
+    async def _request(self, method: str, path: str, **kwargs) -> Any:
         url = f"{self.base_url}{path}"
         try:
-            response = await self.client.request(
-                method, url, headers=self._headers(token), **kwargs
-            )
+            response = await self.client.request(method, url, headers=self._headers(), **kwargs)
         except httpx.ConnectError as e:
-            logger.warning("{provider}_service_unreachable", url=url, error=str(e))
-            raise {Provider}ServiceError(503, "{Provider} service unreachable")
+            logger.warning("{provider}_unreachable", url=url, error=str(e))
+            raise {Provider}ServiceError(503, "unreachable")
         except httpx.TimeoutException:
-            logger.warning("{provider}_service_timeout", url=url)
-            raise {Provider}ServiceError(504, "{Provider} service timeout")
+            logger.warning("{provider}_timeout", url=url)
+            raise {Provider}ServiceError(504, "timeout")
 
         if response.status_code >= 400:
             detail = self._extract_detail(response)
-            logger.warning("{provider}_service_error",
-                           url=url, status=response.status_code, detail=detail)
+            logger.warning("{provider}_error", url=url, status=response.status_code, detail=detail)
             raise {Provider}ServiceError(response.status_code, detail)
-
         return response.json()
 
-    async def close(self):
+    async def close(self) -> None:
         await self.client.aclose()
 
-    # --- Resource methods ---
+    # --- one method per upstream call you actually use ---
 
-    async def get_{resource}(self, org_id: str,
-                             token: Optional[str] = None) -> Dict[str, Any]:
-        """Get {resource} for the given org."""
-        return await self._request("GET", f"/{provider}/{org_id}/{resource}",
-                                   token=token)
+    async def get_{resource}(self, org_id: str) -> Dict[str, Any]:
+        return await self._request("GET", f"/{provider}/{org_id}/{resource}")
 ```
 
-## Key Design Decisions
-
-### Why `_headers()` auto-detects key format
-
-API keys in the mesh come in two flavors:
-- **Opaque keys** (`ab0t_sk_live_...`) — sent as `X-API-Key` header. The callee validates via `POST /auth/validate-api-key`
-- **JWT keys** (contains `.`) — sent as `Authorization: Bearer`. The callee validates via JWKS
-
-The `"." in self.api_key` check handles both formats transparently. Currently all consumer keys are opaque (`ab0t_sk_live_*`).
-
-### Why `forwarded_token` parameter exists but is rarely used
-
-The `token` parameter on each method allows forwarding a user's JWT for cases where the upstream service **does** accept the consumer's audience. In the standard mesh pattern, this is not used — the static API key handles auth. The parameter exists for backward compatibility and edge cases.
-
-### Why 15-second timeout
-
-Backend-to-backend calls should complete quickly. If the upstream is taking >15s, something is wrong (deadlock, slow query, etc.). Fail fast so the user gets a response.
-
-### Why `_extract_detail()` parses multiple formats
-
-Different services return errors differently:
-- `{"detail": "Not found"}` — FastAPI default
-- `{"message": "Rate limited"}` — some services
-- `{"error": "Invalid request"}` — others
-
-The extractor tries each format and falls back to raw text.
-
-## Logger Choice
-
-If your service uses **structlog**:
+Settings (Pydantic `BaseSettings` or equivalent):
 ```python
-import structlog
-logger = structlog.get_logger()
-logger.warning("event_name", url=url, status=status)  # kwargs OK
+{PROVIDER}_SERVICE_URL: str
+{PROVIDER}_SERVICE_API_KEY: str
 ```
+Fill them from the two lines `authsetup --env <env> connect <provider> --as <you>` prints; the key
+value comes from `~/.authmesh/<you>/<provider>-consumer.<env>.json` (`.api_key.key`) via your secrets
+manager, never pasted into code or chat.
 
-If your service uses **stdlib logging**:
+## Why it looks like this
+
+- **No user token parameter.** A user's token is minted for *your* audience; the provider rejects it,
+  and even if it did not, it would carry the user's permissions instead of your tier's. Your key is
+  the identity.
+- **Key format by prefix.** Mesh service keys start `ab0t_sk_` and go in `X-API-Key`; anything else
+  you hold for a provider is a bearer token.
+- **No default URL.** A missing URL should stop the service at start-up, not quietly send a dev key to
+  production.
+- **15-second timeout.** Backend-to-backend calls should be fast; fail fast and let the caller retry.
+- **`_extract_detail` is for logs.** Providers answer in different shapes (`detail`, `message`,
+  `error`); log it, never forward it (see `proxy-routes.md`).
+
+## Logger choice
+
+structlog takes keyword arguments; stdlib `logging` does not. Do not mix them:
 ```python
 import logging
 logger = logging.getLogger(__name__)
-logger.warning("event_name url=%s status=%s", url, status)  # positional only
+logger.warning("provider_error url=%s status=%s", url, status)   # stdlib: positional only
 ```
-
-Do NOT mix — structlog kwargs on a stdlib logger causes `TypeError: Logger._log() got an unexpected keyword argument`.
-
-## Adding Settings
-
-In `app/config.py` (Pydantic BaseSettings or equivalent):
-
-```python
-{PROVIDER}_SERVICE_URL: str = ""
-{PROVIDER}_SERVICE_API_KEY: str = ""
-```
+Passing keywords to a stdlib logger fails with `TypeError: Logger._log() got an unexpected keyword argument`.

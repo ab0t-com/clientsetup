@@ -16,7 +16,8 @@ be operated equally well by a **human**, a **CI pipeline**, or an **AI agent**.
 | You are… | You use… |
 |---|---|
 | **A service team onboarding to the Auth Mesh** (internal or external company) | the Quick start below (`init --publish` → `up`); you should never need to read auth-service internals |
-| **An AI agent** asked to set up / fix / update a client's auth | the agent skill shipped inside the binary: `authsetup skills install` puts it where agents look (`authsetup skills print authsetup-cli` shows it; Agent Skills standard — Claude Code, Codex, Gemini, opencode…). Load it and follow it; everything is non-interactive-safe |
+| **A person using Claude Code** who wants a guide | `authsetup bot install` — Ally, the setup assistant (an agent + 17 plain-language SOPs + skills), installed offline from the binary and matched to its version; then say `@agent-ally` in a new session (`authsetup bot status` / `bot uninstall`; `--project` for one repository) |
+| **An AI agent** asked to set up / fix / update a client's auth | the agent skills shipped inside the binary: `authsetup skills install` puts them where agents look (`authsetup skills print authsetup-cli` shows it; Agent Skills standard — Claude Code, Codex, Gemini, opencode…). Load it and follow it; everything is non-interactive-safe |
 | **A CI pipeline** | `--env <name>` + `validate` + `run` (or `up --yes`), with `AUTHSETUP_CREDS_DIR`; the exit code is the contract (below) |
 | **The platform team** | [ARCHITECTURE.md](ARCHITECTURE.md) (design + incident-traceable conventions), [docs/MIGRATION.md](docs/MIGRATION.md) (bash parity), [migrations/](migrations/README.md) (per-release upgrade kits) |
 

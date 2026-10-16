@@ -1,140 +1,77 @@
-# Proxy Route Patterns
+# Proxy route pattern (FastAPI)
 
-How to wire up FastAPI routes that proxy requests to upstream mesh services.
+Your frontend calls **your** API; your API calls the provider with your key for the signed-in
+customer's org. The pattern below uses `ab0t_auth` for the user check (Ally SOP 06) and the client
+from `client-patterns.md`.
 
-## Standard Pattern
+## The route
 
 ```python
-from fastapi import Depends, HTTPException
-from app.auth import require_auth, AuthenticatedUser
-from app.{provider}_client import {Provider}ServiceClient, {Provider}ServiceError
 import logging
+from typing import Annotated
+
+from fastapi import Depends, HTTPException
+from ab0t_auth import AuthenticatedUser, require_permission
+
+from app.auth import auth                                   # your AuthGuard (SOP 06)
+from app.{provider}_client import {Provider}ServiceClient, {Provider}ServiceError
 
 logger = logging.getLogger(__name__)
 {provider}_client = {Provider}ServiceClient()
 
+Reader = Annotated[AuthenticatedUser, Depends(require_permission(auth, "invoicer.read.invoices"))]
+
 
 @app.get("/api/{provider}/{resource}")
-async def get_{provider}_{resource}(
-    user: AuthenticatedUser = Depends(require_auth)
-):
+async def get_{provider}_{resource}(user: Reader):
     try:
-        return await {provider}_client.get_{resource}(user.org_id)
+        return await {provider}_client.get_{resource}(user.org_id)     # org_id from the validated token
     except {Provider}ServiceError as e:
-        logger.warning(
-            "{provider}_proxy_error status=%s detail=%s org_id=%s",
-            e.status_code, e.detail, user.org_id
-        )
-        if e.status_code == 503:
-            raise HTTPException(status_code=503, detail="{Provider} service unavailable")
-        elif e.status_code == 504:
-            raise HTTPException(status_code=504, detail="{Provider} service timeout")
-        else:
-            raise HTTPException(status_code=502, detail="{Provider} request failed")
+        logger.warning("{provider}_proxy_error status=%s org_id=%s", e.status_code, user.org_id)
+        if e.status_code in (503, 504):
+            raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+        if e.status_code == 404:
+            raise HTTPException(status_code=404, detail="Not found")
+        raise HTTPException(status_code=502, detail="Upstream request failed")
 ```
 
-## Security Rules (Mandatory)
+## The four rules
 
-### 1. org_id comes from JWT, never from request
-
+**1. `org_id` comes from the validated token, never from the request.**
 ```python
-# CORRECT — org_id from validated JWT claims
+# right
 return await client.get_balance(user.org_id)
 
-# WRONG — org_id from URL parameter (spoofable)
+# wrong: the caller chooses whose data to read
 @app.get("/api/billing/{org_id}/balance")
 async def get_balance(org_id: str):
-    return await client.get_balance(org_id)  # attacker controls org_id
+    return await client.get_balance(org_id)
 ```
 
-### 2. Never leak upstream error details to browser
+**2. Never send the provider's error text to the browser.** Log it server-side; answer with a short,
+fixed message. Upstream details reveal internals and other customers' identifiers.
 
-```python
-# CORRECT — generic message, real error logged server-side
-except {Provider}ServiceError as e:
-    logger.warning("proxy_error status=%s detail=%s", e.status_code, e.detail)
-    raise HTTPException(status_code=502, detail="{Provider} request failed")
+**3. Never forward the user's bearer token.** The client sends your service key; a user's token has
+the wrong audience and the wrong permissions for the provider.
 
-# WRONG — upstream internals sent to browser
-except {Provider}ServiceError as e:
-    raise HTTPException(status_code=e.status_code, detail=e.detail)
-```
+**4. Translate status codes at the boundary.**
 
-### 3. Never forward user JWT to upstream
+| upstream | your response | why |
+|---|---|---|
+| unreachable / timeout | `503` "Service temporarily unavailable" | could not decide; the customer may retry |
+| `401` / `403` on your key | `502` "Upstream request failed" | your key or tier is wrong: your problem, not the customer's (fix the tier, SOP 11) |
+| `404` | `404` "Not found" | safe to pass through without detail |
+| anything else | `502` "Upstream request failed" | safe catch-all |
 
-```python
-# CORRECT — client uses its own API key (set in __init__ from env)
-return await client.get_balance(user.org_id)
+## Naming
 
-# WRONG — user's JWT has wrong audience, wrong permissions
-token = request.headers.get("Authorization", "").replace("Bearer ", "")
-return await client.get_balance(user.org_id, token=token)
-```
+Your API owns its own paths (`/api/<provider>/<resource>`); the upstream path is whatever the
+provider's API reference says, with the customer's `org_id` filled in by you. For billing, for
+example, `GET /api/billing/balance` → `GET /billing/<org_id>/balance`. Check each provider's API
+reference (its `/openapi.json`) for the real paths; do not guess.
 
-### 4. Translate status codes at the boundary
+## Pagination and files
 
-Map upstream errors to appropriate proxy errors:
-
-| Upstream | Proxy Response | Why |
-|----------|---------------|-----|
-| 503 (unreachable) | 503 "{Provider} service unavailable" | Upstream is down |
-| 504 (timeout) | 504 "{Provider} service timeout" | Upstream too slow |
-| 401/403 (auth) | 502 "{Provider} request failed" | Consumer key issue — internal, not user's fault |
-| 404 (not found) | 404 "Resource not found" | Can pass through (no internal detail) |
-| Everything else | 502 "{Provider} request failed" | Safe catch-all |
-
-## Route Naming Convention
-
-```
-Frontend URL:    /api/{provider}/{resource}
-Upstream URL:    /{provider}/{org_id}/{resource}
-```
-
-The consumer service owns the `/api/` prefix. The upstream service uses org_id in the path.
-
-Examples:
-
-| Consumer Route | Upstream Route |
-|---------------|---------------|
-| `GET /api/billing/balance` | `GET /billing/{org_id}/balance` |
-| `GET /api/billing/transactions` | `GET /billing/{org_id}/transactions` |
-| `GET /api/payments/subscriptions` | `GET /subscriptions/{org_id}` |
-| `GET /api/payments/invoices` | `GET /invoices/{org_id}` |
-
-## Pagination Pass-through
-
-For paginated upstream endpoints, accept pagination params from the frontend and forward them:
-
-```python
-@app.get("/api/{provider}/{resource}")
-async def get_{resource}(
-    limit: int = 20,
-    offset: int = 0,
-    user: AuthenticatedUser = Depends(require_auth)
-):
-    try:
-        return await {provider}_client.get_{resource}(
-            user.org_id, limit=limit, offset=offset
-        )
-    except {Provider}ServiceError as e:
-        # ... standard error handling
-```
-
-## File Redirects (e.g., Invoice PDFs)
-
-When the upstream returns a redirect to a file (S3 pre-signed URL):
-
-```python
-@app.get("/api/payments/invoices/{invoice_id}/pdf")
-async def get_invoice_pdf(
-    invoice_id: str,
-    user: AuthenticatedUser = Depends(require_auth)
-):
-    try:
-        url = await payment_client.get_invoice_pdf_url(user.org_id, invoice_id)
-        return {"pdf_url": url}
-    except PaymentServiceError as e:
-        # ... standard error handling
-```
-
-The client follows the redirect chain and returns the final URL. The frontend opens it in a new tab.
+Accept `limit` / `offset` (or the provider's cursor) from the frontend, validate them, and pass them
+through. For a downloadable file (an invoice PDF), return the URL the provider gives you for that
+customer's org and let the browser open it; never fetch another org's file because the browser asked.

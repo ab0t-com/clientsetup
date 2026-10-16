@@ -1,115 +1,106 @@
 ---
 name: connect-to-ab0t-mesh-provider
-description: Connect a client service (or agent) to an ab0t Auth Mesh provider using the authsetup binary — discover providers, self-register as a consumer, mint a scoped API key, and wire it in. Use when a service needs to CALL another ab0t mesh service (billing, payment, audit, resource, schema, …) and you have no provider credentials and no monorepo checkout; when you see "how do I get an API key for <service>", "connect to the mesh", "consume the billing/payment API", "authsetup providers", "authsetup connect"; when choosing a consumer tier; when a minted key 403s on a permission; or when deciding what to do with the key for billing/payment/quota. This is the ZERO-CREDENTIAL, client-side path (provider ran `run 08`); for the internal consumer path that needs the provider's admin creds see `mesh-service-accounts`/`mesh-consumer-account-sop`.
+description: >-
+  Connect a service (or agent) to an ab0t mesh provider with the authsetup CLI: discover providers,
+  self-register as a consumer, mint a scoped API key, and wire it in, with no provider credentials and
+  no config files. Use when a service needs to CALL another mesh service (billing, payment, audit, a
+  partner's API) and asks "how do I get an API key for <service>", "connect to the mesh", "authsetup
+  providers", "authsetup connect", which tier to choose, why a minted key 403s on a permission, or what
+  to do with the key next. For the decision guide (tiers, upgrades, rotation, the in-house clients.d
+  path) see mesh-consumer-account-sop.
 ---
 
-# Connect to an ab0t mesh provider
+# Connect to a mesh provider
 
-> **In this skill "consumer" = a SERVICE calling another service — NOT your product's human end users.** Human end users live in the `{service}-users` org (see the `auth-mesh-setup` skill); mesh consumers are other services and live in the `{service}-api-consumers` org.
+## What this is
 
-Facilitate the relationship between your service and a provider's API in one
-command — no provider credentials, no config files, no monorepo. The provider
-opened self-serve consumption once (their `run 08`); you self-register and mint
-a scoped key against the published directory.
+A provider publishes **tiers** of access in the mesh directory; you connect in one command and get your
+own key holding exactly one tier's permissions. You never see the provider's credentials, and the
+provider never provisions anything per customer.
 
-## When this is the right path
+## The picture
 
-Use this (`authsetup providers` / `authsetup connect`) when **you are the
-consumer**, on your own infrastructure, and the provider has opened self-serve.
-You only ever see a public org slug + a `register_url`.
+```
+authsetup --env dev providers ──► directory: billing, payment, … each with tiers and a connect line
+authsetup --env dev connect billing --as invoicer
+   1. finds the provider (works for unlisted providers too, given the id)
+   2. picks the tier (--tier "<name>", else the default)
+   3. registers a service account in billing-api-consumers (password generated and kept for you)
+   4. mints a key holding exactly the tier's permissions (the auth service refuses anything more)
+   5. saves it 0600 to ~/.authmesh/invoicer/billing-consumer.<env>.json — never printed
+   6. prints the env lines to wire
+```
 
-Use `mesh-service-accounts` / `mesh-consumer-account-sop` (`authsetup run 07`)
-instead when you operate INSIDE the ab0t monorepo and hold the provider's admin
-credentials file — that path pre-dates the directory and grants arbitrary
-permissions the provider implicitly trusts.
-
-## Workflow
-
-### 1. Install the binary (once)
+## Do this (the default path)
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/ab0t-com/clientsetup/main/install.sh | sh
 authsetup version
+authsetup --env dev providers                       # human-readable cards; --json prints one JSON document
+authsetup --env dev connect billing --as invoicer --dry-run
+authsetup --env dev connect billing --as invoicer
+authsetup --env dev status --verify                 # ◐ WIRED → ● LIVE
 ```
+Read each card for the provider id, its tiers and their permissions; the tier marked
+`[default — zero-touch]` is the one anyone may join instantly. `--as` names your identity (defaults to
+your config's `service.id`, else `authmesh-consumer`); use the same one for every provider. `--email`
+chooses the consumer account's address.
 
-### 2. Discover — who accepts self-serve consumers
-
-```sh
-authsetup providers            # human-readable
-authsetup providers --json     # the raw directory (for scripting/agents)
+Then wire the two lines `connect` prints. On production, for billing:
 ```
-
-Read, per provider: `service_id`, `register_url`, and each **tier** with the
-permissions it grants. The tier marked `[default — zero-touch]` is the one
-anyone can self-register into. Non-default tiers may withhold their permission
-list and require the provider to upgrade your account after you connect.
-
-If this prints "no mesh provider directory yet (… → 404)", the directory is not
-deployed on that environment — pick the env with `--env` (default `prod`), or
-fall back to the two raw HTTP calls in `references/manual-http-flow.md`.
-
-### 3. Connect — self-register + mint a scoped key
-
-```sh
-authsetup connect billing --as my-service
-```
-
-What it does, end to end (idempotent — safe to re-run):
-1. Resolves the provider from the directory (works even if unlisted, given its id).
-2. Picks the tier (`--tier "<name>"`, else the default).
-3. Registers a service account in the provider's `*-api-consumers` org
-   (generates + persists a password; `--email <addr>` to choose the address).
-4. Mints an `ab0t_sk_live_…` key holding **exactly** the tier's permissions.
-   The auth service enforces the subset: it **403s** any permission the tier
-   doesn't grant. `connect` turns that 403 into guidance (use the default tier,
-   or ask the provider to upgrade you).
-5. Saves the key **0600** to `~/.authmesh/<self>/<provider>-consumer.<env>.json`.
-6. Prints the env wiring — **never the key value** (it stays in the file).
-
-Preview without mutating: add `--dry-run`. Choose your creds namespace with
-`--as <your-service>` (defaults to your config's `service.id`, else
-`authmesh-consumer`).
-
-### 4. Wire the key into your service
-
-`connect` prints (for provider `billing`):
-
-```sh
 BILLING_SERVICE_URL=https://billing.service.ab0t.com
-BILLING_SERVICE_API_KEY=<read .api_key.key from ~/.authmesh/<self>/billing-consumer.prod.json>
-# If you use the ab0t-quota-go library (Go):
-AB0T_QUOTA_BILLING_URL=https://billing.service.ab0t.com
+BILLING_SERVICE_API_KEY=<read .api_key.key from ~/.authmesh/invoicer/billing-consumer.prod.json>
 ```
+Off production the URL is left empty on purpose (`# BILLING_SERVICE_URL: not published for this
+environment — ask the provider for its URL`). Load the key from your secrets manager and send it as
+`X-API-Key` on every call to the provider. Prod: the same commands with `--env prod`.
 
-Load the key from your secrets manager (never commit it) and send it as
-`X-API-Key` on every request to the provider.
+A five-minute walkthrough for humans is `QUICKSTART.md` in `https://github.com/ab0t-com/clientsetup`.
 
-### 5. Verify
+## What to do with the key next
 
-Call a read endpoint on the provider with the key:
+- **Billing and payment** (metering, balances, plans, checkout, the customer portal):
+  `billing-payment-consumer-setup`, then the billing-quota bot (Penny) and its SOPs.
+- **Any provider from your own backend code**: `mesh-service-accounts` (client and proxy-route patterns).
+- **A higher tier, rotation, leaving**: `mesh-consumer-account-sop` and Ally SOP 14.
+- **The provider's API itself**: its `/openapi.json`.
+
+## What your customers notice
+
+Nothing, when it works: your backend calls the provider for them, scoped to their org (take `org_id`
+from their validated token). If the provider cannot be reached, your API should answer `503`, never
+fake a success, and never pass the provider's error text to the browser.
+
+## Common mistakes (and what you will see)
+
+| you see | it means | do |
+|---|---|---|
+| `this auth service has no mesh provider directory yet (GET /mesh/providers → 404) — …` | not on that environment | another `--env`, or the manual flow |
+| `no mesh provider "biling"` | typo or wrong environment | `authsetup --env dev providers` |
+| `tier "Pro" not offered — available: …` | wrong tier name | pick a listed one, or drop `--tier` |
+| `provider "billing" did not grant every permission tier "Standard Consumers" requests — the default tier is zero-touch; …` | that tier needs the provider's approval | connect on the default tier, ask the provider, then `--tier` |
+| `tier "Integrations" does not publish its permission set in the directory — …` | same | same |
+| `consumer account … already exists but the stored password did not authenticate — pass --email with a fresh address …` | created from another machine | that machine's `~/.authmesh/<you>/`, or `--email` |
+| `provider "x" has self-serve registration disabled` / `closed — invitation only` | sign-up is off | ask the provider for an invitation |
+| `refusing to mutate PRODUCTION (…) without an explicit target — …` | no `--env` | add `--env dev` (or `--env prod` deliberately) |
+| `creds dir … is inside a git repo and not gitignored; …` | your credentials would land in a repository | `--write-gitignore`, or keep the default `~/.authmesh/` |
+
+More: [references/troubleshooting.md](references/troubleshooting.md) and Ally SOP 16 (*Consumers*).
+
+## Check it worked
 
 ```sh
-curl -H "X-API-Key: $BILLING_SERVICE_API_KEY" https://billing.service.ab0t.com/health
+authsetup --env dev status --verify
+curl -sS -H "X-API-Key: $BILLING_SERVICE_API_KEY" "$BILLING_SERVICE_URL/health"   # 200 with the key, 401 without
 ```
-
-A 200 with the key (and 401 without) confirms the relationship is live.
-
-## What to do with the key next (routing)
-
-- **Billing / payment / subscriptions** (record usage, quota checks, checkout,
-  Customer Portal): load the **`billing-payment-integration`** skill — proxy
-  routes, HTML buttons, Stripe Checkout, webhooks. Consumer-account specifics
-  for those two are in **`billing-payment-consumer-setup`**.
-- **A Go service metering usage / granting credits**: load
-  **`ab0t-quota-go-design`** (then `ab0t-quota-go-setup`) — the library reads
-  `AB0T_QUOTA_<PROVIDER>_URL` and calls the provider with your key.
-- **Other providers** (audit, resource, schema): use the provider's
-  `*-service-api-reference` skill with the `X-API-Key` you just minted.
+Still stuck: `authsetup --env dev doctor --json`, `status --json`, the failing output and the latest
+`~/.authmesh/<you>/journal/*.jsonl` (redacted) to `platform-team@ab0t.com`; never the key.
 
 ## Reference
 
-- **[references/manual-http-flow.md](references/manual-http-flow.md)** — the two
-  raw HTTP calls `connect` automates, for when the binary can't run (other
-  languages, no install) or the directory endpoint isn't deployed yet.
-- **[references/troubleshooting.md](references/troubleshooting.md)** — 403 on
-  mint, "already exists", tier withheld, directory 404, prod guard.
+- [references/manual-http-flow.md](references/manual-http-flow.md): the HTTP calls `connect`
+  automates, for a client that cannot run the binary.
+- [references/troubleshooting.md](references/troubleshooting.md): `providers` / `connect` problems.
+- Ally SOPs (in `authmesh/`): [11 using other services](../../11_sop_system_using_other_services.md) ·
+  [14 keys](../../14_sop_system_keys_rotate_offboard_disconnect.md) ·
+  [16 troubleshooting](../../16_sop_system_troubleshooting_and_recovery.md).
