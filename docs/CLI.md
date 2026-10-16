@@ -95,7 +95,8 @@ for them is off until you set `registration.signup_enabled` in
 what to do) · `2` unknown flag · `3` drift found by `status` (re-run reconciles)
 · `4` drift authsetup cannot repair itself (needs a human; the object is named).
 Read verbs with `--json`: `status` · `doctor` · `info` · `validate` · `providers`
-· `whois` · `settings` · `login-url` · `connection` · `platform-holders` · `update`.
+· `whois` · `settings` · `login-url` · `connection` · `platform-holders` · `update`. From 0.5.27 `run --json` and
+`up --json` print one document too (`up --json` without `--yes` only plans); `--json` elsewhere warns on stderr.
 
 ---
 

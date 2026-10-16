@@ -243,7 +243,9 @@ Promote dev → prod by re-running the same config against prod
   unknown flag · `3` drift (`status`) · `4` cannot repair (needs a human). Do not grep the human output: it
   is worded for people and changes between releases (each release's kit in `migrations/` lists what changed).
 - Machine-readable read verbs: `validate --json`, `status --json`, `doctor --json`, `info --json`,
-  `providers --json` (one JSON document on stdout). Note: `status --json` reports drift inside the document
+  `providers --json` (one JSON document on stdout). From 0.5.27 also `run --json` / `up --json`: one document
+  `{schema_version, command, env, service, exit_code, steps[], cannot_repair, service_key?}` on stdout, human text on
+  stderr; `up --json` without `--yes` only plans. Note: `status --json` reports drift inside the document
   (`pipeline[].state`) and exits 0 — use the human `status` exit code (3) as the gate.
 - Readiness probe: `authsetup --env $AUTH_ENV doctor` (exit 0 when auth is reachable and the config is valid).
 

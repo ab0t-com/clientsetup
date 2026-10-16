@@ -4,6 +4,55 @@ All notable changes to `authsetup`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.27] — 2026-10-16 — a revoked service key recovers in one run; messages that say what to type
+Migration kit: `migrations/v0.5.26-to-v0.5.27/` (rows R1–R6). **Breaking: none for normal use.** One behaviour change a
+script can notice: `run`/`up` now MINT a new service key where 0.5.26 stopped (R1). Built from usability trials J1 and J10
+(ticket `tickets/20261016_trial_j1_first_run_confusions/`).
+### Changed
+- **A revoked service key is re-minted (R1, owner-approved 2026-10-16).** When the auth service answers `valid:false` for
+  the saved service key (a definite answer: revoked or deleted), step 01 moves the dead key's entry to
+  `<creds>/.archive/` (0600, never deleted), mints a new key with every declared permission, saves it and says
+  `your saved service key no longer works (revoked or deleted) — minted <id>; deploy it: authsetup --env <env> settings
+  --env-file .env, then restart your app (it still holds the dead key)`; the run's NEXT leads with the settings line. `--dry-run` / `up --dry-run` show `re-mint service key (saved key is revoked)`. A failed CHECK (5xx,
+  timeout, unreachable) keeps the stop and mints nothing: `could not check the saved service API key … — a failed check is
+  not a revoked key, so nothing was re-minted`. 0.5.26 stopped with `… fix: re-mint (rotate the key; run step 01 on fresh
+  creds)` and an empty NEXT. An under-permissioned key is unchanged (still a stop; SOP 14).
+- **`status` and `doctor` name a revoked key** and print the exact command (`authsetup --env <env> --config-dir <dir> run`,
+  then `settings --env-file .env`) instead of "drift → run". `status` exits `3` for it (run reconciles it now) and `1`
+  when the key could not be checked (R2).
+### Added
+- **`run --json` / `up --json` (R3):** one JSON document on stdout — `{schema_version:"1", command, env, service,
+  exit_code, dry_run, steps:[{id, name, status, error?, duration_ms, actions:[{description, outcome}]}], cannot_repair,
+  service_key?}` (+ `applied`, `planned` for up); every human line goes to stderr. `up --json` without `--yes` only plans
+  (exit 0, nothing applied). `--json` on a command without a machine view prints one stderr warning; output and exit code
+  are unchanged.
+- `up --help` has an ENVIRONMENT section (`ADMIN_EMAIL`, `AUTHSETUP_ENV`, `AUTHSETUP_CONFIRM_PROD`, …).
+### Fixed (wording; R4–R6)
+- NEXT lines keep your flags: `init --publish` (`--env`), a failed `up` (`--config-dir`, `--yes`), `status`, `doctor`, `up`'s
+  closing lines (`--config-dir`).
+- `doctor` in a folder with no config says `consumer only` (not "pure-consumer mode") and names both ways on:
+  `init --publish` and `connect <provider>`.
+- `authsetup env` labels a built-in URL that `environments.json` changed `(override: <file>)`, not `(built-in)`.
+- `--env` and `--base-url` that disagree: the message says where the env's URL comes from and prints the two commands to
+  paste on their own lines (keep `--env`, drop `--base-url` · or the env the URL belongs to).
+- A taken schema name names ALL FOUR places the new name goes (`service.id`, `service.audience`, `registration.service`,
+  every permission-id prefix) with a real example, and the one command for a starter config:
+  `authsetup … init --publish --as <new> --force` (old files archived).
+- `status`, converged with 0 connections: `no connections; the pipeline is converged — nothing to change on the mesh.` (not
+  "all connections LIVE"), and it says it cannot see your app (after a re-mint: `settings --env-file .env` + restart).
+- `init --publish`'s NEXT no longer says up "asks for the environment" when the line already carries `--env`.
+- A first `PUT login-config` on an org the same run created reads `✓ PUT login-config …`, not `~ re-sent … same values`.
+- `up` in a script with no environment names the dev line AND the production CI line
+  (`AUTHSETUP_CONFIRM_PROD=1 authsetup --env prod … up --yes`); `use-env` is for a person at a terminal.
+- A taken schema name adds how to check the owning org is yours (`authsetup whois <org>`, `authsetup accounts`).
+- The plan's admin line adds `(set ADMIN_EMAIL to use a real mailbox you control)`.
+- A first-ever schema register reads `✓ register permission schema …` (`+` in the up plan), not `~ re-sent … same values`.
+- Step 05: an undeclared `scope` reads `optional — nothing to do`.
+- `doctor --help`: the under-permissioned fix says what to edit, not "fresh creds".
+- Ally (embedded, 0.5.27): index, agent, README, SOPs 03, 06, 14, 16 and GAPS updated (versions say 0.5.27; doctor/update
+  contact GitHub; `/auth/authorize` needs the signed-in customer's bearer; restart the app after a re-mint); SOP 14 says `ab0t_sk_live_` is every key's prefix on every
+  environment (`live` is not production).
+
 ## [0.5.26] — 2026-10-16 — security fix for `bot … --project`; environments.json shape
 Migration kit: `migrations/v0.5.25-to-v0.5.26/` (rows R1–R3). **Breaking: none for normal use. Upgrade promptly (R1).**
 ### Security
