@@ -53,7 +53,7 @@ and verify it against [`release/checksums.txt`](release/checksums.txt).
 > adopts your existing service org instead of creating a duplicate. Then use
 > `authsetup` normally. Full guide in **[`docs/MIGRATION.md`](docs/MIGRATION.md)**.
 
-## Quickstart
+## Quickstart.
 
 ```sh
 # 1. Describe your service (copy the examples, then edit the obvious bits)
