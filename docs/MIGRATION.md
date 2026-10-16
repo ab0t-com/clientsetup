@@ -1,5 +1,7 @@
 # Migration: from the old bash kit
 
+> Upgrading between authsetup versions? See [`UPGRADING.md`](UPGRADING.md) for per-version behaviour changes.
+
 **Audience:** operators coming from an old checkout of the numbered bash scripts
 (`./setup` + `scripts/0X-*.sh`). Those scripts no longer ship in the public
 `clientsetup` repo — the single static `authsetup` binary is now the only tool.

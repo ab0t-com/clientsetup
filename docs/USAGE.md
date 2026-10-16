@@ -34,9 +34,23 @@ never a human** — say "mesh consumer (other service)" or "consume an upstream 
 
 ## 1. First-time onboarding
 
+**The default path — no JSON to write by hand:**
+
+```bash
+authsetup init --publish                         # a few questions → $PWD/config/ written + validated (never overwrites)
+authsetup up                                     # plan in plain words → yes → apply; asks dev/prod once (never guesses prod)
+authsetup --env dev settings --env-file .env     # your app's values (client id, URLs, key) into .env — the key is never printed
+authsetup --env dev snippet login > login.html   # a ready sign-in block
+authsetup --env dev login-url --check            # your users' hosted sign-in page, checked
+authsetup --env dev doctor                       # where am I / what's blocking me (read-only)
+```
+
+**The expert path — the numbered pipeline:**
+
 ```bash
 cp config/permissions.json.example $CFG/permissions.json   # then EDIT it:
-#  - service.id            your service slug (lowercase, NO hyphens — server rule)
+#  - service.id            your service slug (lowercase; letters, digits, _ and -)
+#  - registration.service  the registry name your permission ids start with (lowercase; letters, digits, _ — NO hyphens, server rule)
 #  - registration.*        the action/resource vocabulary of your API
 #  - permissions[]         one entry per permission; default_grant:true = every user gets it
 #  - roles[]               optional named bundles; mark ONE default:true
@@ -45,13 +59,15 @@ cp config/oauth-client.json.example $CFG/oauth-client.json # your frontend redir
 cp config/hosted-login.json.example $CFG/hosted-login.json # branding + registration rules
 
 authsetup --config-dir $CFG validate
-AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir $CFG --dry-run run
-AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir $CFG run
-AUTH_SERVICE_URL=https://auth.dev.ab0t.com authsetup --config-dir $CFG run 06   # e2e proof
+authsetup --env dev --config-dir $CFG --dry-run run
+authsetup --env dev --config-dir $CFG run
+authsetup --env dev --config-dir $CFG run 06   # e2e proof (a throwaway user signs up, is checked, then removed)
 ```
 
-Wire your frontend to the printed hosted-login URL + the end-users OAuth
-`client_id` (in `~/.authmesh/<service>/end-users-oauth-client-dev.json`).
+If the dry run says the permission-schema name **is taken**, another organization already owns
+`registration.service` — choose a different one (nothing was created). Wire your frontend to the printed
+hosted-login URL + the end-users OAuth `client_id` (`authsetup --env dev settings` prints both; the file is
+`~/.authmesh/<service>/end-users-oauth-client.dev.json`).
 
 > **Truth-teller (roles caveat):** the `roles[]` in `permissions.json` set the
 > default role *name* only. The server does not yet resolve custom
@@ -218,9 +234,16 @@ Promote dev → prod by re-running the same config against prod
 # pipeline sketch — exit code is the contract
 - run: authsetup --config-dir ./config validate
 - run: AUTHSETUP_CREDS_DIR=/var/lib/authmesh/$SERVICE \
-       AUTH_SERVICE_URL=$AUTH_URL \
-       authsetup --config-dir ./config run
+       authsetup --env $AUTH_ENV --config-dir ./config run      # or: up --yes
 ```
+
+- Exit codes: `0` converged · `1` failed (incl. a schema name that is taken — the message says so) · `2`
+  unknown flag · `3` drift (`status`) · `4` cannot repair (needs a human). Do not grep the human output: it
+  is worded for people and changes between releases (each release's kit in `migrations/` lists what changed).
+- Machine-readable read verbs: `validate --json`, `status --json`, `doctor --json`, `info --json`,
+  `providers --json` (one JSON document on stdout). Note: `status --json` reports drift inside the document
+  (`pipeline[].state`) and exits 0 — use the human `status` exit code (3) as the gate.
+- Readiness probe: `authsetup --env $AUTH_ENV doctor` (exit 0 when auth is reachable and the config is valid).
 
 - Set `AUTHSETUP_CREDS_DIR` to a persistent volume **outside the checkout**
   (the git-safety gate hard-fails non-interactive runs into unignored repo
@@ -236,9 +259,10 @@ Promote dev → prod by re-running the same config against prod
 
 Agents get a first-class control surface:
 
-- **Load the skill** `Skills/authsetup-cli/` (Agent Skills standard — Claude
-  Code, Codex, Gemini, opencode all read it). It encodes the operating model,
-  recipes, and the exact flag matrix so the agent doesn't guess.
+- **Load the skill** shipped in the binary: `authsetup skills install` (Agent
+  Skills standard — Claude Code, Codex, Gemini, opencode all read it). It
+  encodes the operating model, recipes, and the exact flag matrix so the agent
+  doesn't guess. Copy NEXT lines as printed — they carry the `--env` you used.
 - Everything is non-interactive-safe: no command ever blocks on a prompt
   unless stdin is a TTY; the only interactive path (gitignore consent) has
   flag equivalents (`--write-gitignore`).
@@ -273,11 +297,14 @@ Agents get a first-class control surface:
 
 | Situation | Recipe |
 |---|---|
-| run failed mid-way | just `run` again — completed work no-ops, the remainder applies |
+| run failed mid-way | the NEXT block prints the exact resume command (the failed step and the ones after it); `run` again from the start is safe too — completed work no-ops |
+| "permission schema name … is taken" | another org owns `registration.service`; choose a different one (or `--creds-dir` the setup that owns it). On a first run nothing was created |
+| "… registered with no owner recorded" | an old registry entry with no owner: ask the auth team to record your service org as its owner — re-running does not help |
+| "the saved admin credentials … no longer sign in" | the message names the file, the admin and the three likely causes; `doctor` shows it too |
 | lost credentials dir | you lose admin password + OAuth management tokens. Recover the admin via the auth service's password reset (admin email is in your records); OAuth clients without their RFC 7592 token must be re-registered under a new `client_name`. Then `run` reconciles around the recovered identity |
 | someone hand-edited server state | `status` shows the drift; `run` converges it (additively) |
 | wrong env applied | nothing is shared between envs except your config; re-run against the right `AUTH_SERVICE_URL`; clean up the wrong env's orgs deliberately via the auth API |
-| stale lockfile | error prints the path + pid; verify the pid is dead; remove the file |
+| stale lockfile | the error prints the path + pid and whether that run is still alive; remove the file only when it says stale |
 | bash kit and authsetup mixed | fully supported — same files; see docs/MIGRATION.md |
 
 ## 10. Rotating credentials
