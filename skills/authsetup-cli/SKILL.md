@@ -171,7 +171,7 @@ token exchange that uses it is a later auth release. `authsetup connection --hel
 
 | Symptom | Do |
 |---|---|
-| `config problem(s)` on any command | fix what it lists; the validator also enforces server rules (service names: no hyphens) |
+| `config problem(s)` on any command | fix what it lists; the validator also enforces server rules (service names: no hyphens). From 0.5.28 `validate` also WARNS on `_` in the service name (a new setup with one fails at step 05) |
 | `the saved admin credentials … no longer sign in` | the message names the file + admin and the three causes (data reset → move that one file aside; wrong env / creds dir → `info`; password changed → update the file); `doctor --strict` checks the sign-in on demand (plain `doctor` only reads the file) |
 | `permission schema name … is taken` | another org owns that name: choose a different `registration.service` (nothing was created on a first run) |
 | `… registered with no owner recorded` | ask the auth team to record your service org as the schema's owner |

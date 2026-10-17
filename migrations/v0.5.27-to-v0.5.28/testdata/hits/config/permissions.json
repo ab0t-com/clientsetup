@@ -1,0 +1,4 @@
+{
+  "service": { "id": "nw_rent", "name": "NW Rent" },
+  "registration": { "service": "nw_rent" }
+}

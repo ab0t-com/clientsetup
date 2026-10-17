@@ -53,7 +53,8 @@ frontend (SOP 06). Prod later: the same files with `--env prod`, run in your own
 to type `prod` the first time). Never copy credential files between environments.
 
 Things that are fixed once created: `service.id`, `registration.service` and `service.audience`
-(lowercase letters, digits, `_`; no hyphens). Pick the short name carefully (SOP 04).
+(lowercase letters and digits only — no hyphens, no `_`: the auth service drops `_` from org names, so a new setup
+named with one breaks at its first run). Pick the short name carefully (SOP 04).
 
 ## What your customers notice
 

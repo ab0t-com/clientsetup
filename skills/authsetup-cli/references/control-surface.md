@@ -86,9 +86,9 @@ reconciled exactly. To revoke elsewhere: edit the team's permission array direct
 
 ```jsonc
 {
-  "service": { "id": "myservice",          // org slug + audience; lowercase letters, digits, _ (no hyphens); fixed once created
+  "service": { "id": "myservice",          // org slug + audience; lowercase letters and digits only (no hyphens, no _ — auth drops "_" from org names, so a new setup breaks at step 05); fixed once created
                "name": "...", "description": "...", "maintainer": "a@b.com" },
-  "registration": { "service": "myservice", // registry name; ^[a-z][a-z0-9_]*$ (server rule: NO hyphens)
+  "registration": { "service": "myservice", // registry name — the same word as service.id; letters and digits (the registry also takes _, but the org names cannot)
                     "actions": [...], "resources": [...] },
   "permissions": [ { "id": "myservice.read.items", "default_grant": true, ... } ],
   "roles": [ { "id": "myservice-user", "permissions": [...], "default": true } ],

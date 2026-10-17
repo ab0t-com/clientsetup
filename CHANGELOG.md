@@ -4,6 +4,21 @@ All notable changes to `authsetup`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.28] — 2026-10-17 — service names without "_"; Ally answers four first-setup questions
+Migration kit: `migrations/v0.5.27-to-v0.5.28/` (rows R1–R3). **Breaking: none.**
+### Fixed
+- **A service name with `_` no longer breaks a new setup (R1, R2).** The auth service drops `_` from the org names it
+  creates (`nw_rent` → org `nwrent`), so authsetup then looked for the sign-in page `/login/nw_rent-users`, got a 404, and
+  step 05 failed on the very first run. `init --publish` and every name authsetup suggests now use lowercase letters and
+  digits only (`"my app"` → `myapp`, was `my_app`), and `validate` (also `--json` `warnings`) WARNS when
+  `service.id` or `registration.service` contains `_`, naming the fix. It is a warning, not an error: a setup that
+  already works with such a name keeps working.
+### Changed
+- **Ally (R3):** answers four questions first setups get stuck on — one shared users org (`flat`) or a workspace per user
+  (what a backend must compare in each), whether `/auth/validate-token` needs your service key (no), what `ADMIN_EMAIL`
+  is for (it receives the admin's password-reset mail — use a real, monitored mailbox), and how to choose the service
+  name (letters and digits; it becomes the id, audience, registration and every permission prefix; it can't change).
+
 ## [0.5.27] — 2026-10-16 — a revoked service key recovers in one run; messages that say what to type
 Migration kit: `migrations/v0.5.26-to-v0.5.27/` (rows R1–R6). **Breaking: none for normal use.** One behaviour change a
 script can notice: `run`/`up` now MINT a new service key where 0.5.26 stopped (R1). Built from usability trials J1 and J10
