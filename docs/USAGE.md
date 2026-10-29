@@ -153,7 +153,7 @@ cache) or immediately on fresh login.
 
 ## 4. The backfill playbook
 
-When: `workspace-per-user` + you added a permission + existing users 403.
+When: `workspace-per-user` + you added a default permission + existing users 403.
 
 ```bash
 authsetup backfill --dry-run                      # see candidates + exactly what would be added
@@ -165,9 +165,20 @@ authsetup backfill                                # full sweep (idempotent; reru
 - `--extra-perm myservice.write.items` (repeatable) adds role-tier perms the
   workspace owner should hold beyond `default_grant`.
 - Additive only — never removes operator-added perms.
-- If the single-workspace run returns 403 on the team update, your admin
-  lacks authority over child workspace orgs in this environment — stop and
-  contact the platform team (known platform watch-item).
+- It rolls out `default_grant` plus `default_team_permissions` (what a new
+  workspace gets). `--extra-perm` refuses a `platform`, `high`/`critical`-risk
+  or privileged permission: the default team is everyone in the workspace,
+  including people invited later — grant those to one person instead.
+- Who it can change: the auth service changes a team only for a sign-in to
+  the team's own org (your end-users org may list a workspace's teams, not
+  change them). So backfill changes a workspace only where your service admin
+  is a member holding `teams.write` (it switches in). A user's own workspace
+  usually has only that user: backfill prints `NOT changed: workspace … your
+  service admin … is not a member of this workspace`, plans nothing for it
+  (the dry run checks this, read-only) and exits non-zero. That is workspace
+  isolation by design; a re-run will not change it — the workspace's owner
+  applies it, signed in to that workspace. (0.5.28 and earlier tried anyway
+  and failed with `HTTP 404: Team not found`.)
 
 ## 5. Multi-environment
 

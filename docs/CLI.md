@@ -125,7 +125,7 @@ setup repo itself, and they ended up in commits.
 
 | You want to… | Do |
 |---|---|
-| add a permission for all users | add to `permissions.json` (`default_grant: true`) → `up` ; under `workspace-per-user` also `backfill` (existing private workspaces carry frozen copies until the platform's live-policy work lands) |
+| add a permission for all users | add to `permissions.json` (`default_grant: true`) → `up` ; under `workspace-per-user` also `backfill` (existing private workspaces carry frozen copies; backfill changes those your service admin is a member of and names the rest — their owners apply it) |
 | change redirect URIs | edit `oauth-client.json` → `up` (or `run 02` + `run 04`) |
 | change login branding / registration rules | edit `hosted-login.json` → `up` (or `run 03` + `run 04`) |
 | change the default role or team name | edit `end_users.*` → `up` (or `run 04`) |

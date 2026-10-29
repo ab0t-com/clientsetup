@@ -70,6 +70,9 @@ end-users org with auto-join default team. New signups get every
    authsetup --env dev --config-dir ./config backfill                                     # full sweep
    ```
    Users see changes within ~5 min (permission cache) or on fresh login.
+   `backfill` changes a workspace only where your service admin is a member holding `teams.write` (the auth
+   service changes a team only for a sign-in to the team's own org). Any other workspace is reported
+   `NOT changed … not a member`, never planned, and the run exits 1: its owner applies it there.
 
 **Change redirect URIs / branding / registration defaults:** edit
 `oauth-client.json` / `hosted-login.json`, then `authsetup --env dev --config-dir ./config up`
@@ -178,13 +181,15 @@ token exchange that uses it is a later auth release. `authsetup connection --hel
 | user reports 403 on a new permission | the day-2 flow above (`run 04` + `backfill` for workspaces) |
 | `a stale lock …` / `another authsetup run (pid N) is working …` | stale → remove the printed file; alive → wait for it |
 | step 06 fails on missing perms | registration→team auto-join broken server-side; check login-config `default_team` via `status` |
-| backfill 403 on workspace teams | your admin lacks authority over that child org in this env — stop and contact the platform team (`platform-team@ab0t.com`) |
+| backfill `NOT changed: workspace … not a member` (0.5.28: `HTTP 404: Team not found`) | by design: a team is changed only by a sign-in to its own workspace; the workspace's owner applies it — a re-run will not help |
+| backfill `refusing --extra-perm … high-risk` | the default team is everyone in the workspace; grant that permission to one person instead |
 
 ## What your customers notice
 
 A login page in your branding at `/login/<service>-users`, the default permissions from the moment they
 sign up, and nothing else: they never see ab0t, `authsetup` or each other's data. A change to defaults
-reaches them within about five minutes or on a fresh login; existing workspaces need `backfill`.
+reaches them within about five minutes or on a fresh login; existing workspaces need `backfill` (where your
+service admin is a member) or their owner.
 
 ## Check it worked
 

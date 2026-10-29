@@ -4,6 +4,42 @@ All notable changes to `authsetup`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.29] — 2026-10-29 — `backfill` says which workspaces it can change, and changes only those
+Migration kit: `migrations/v0.5.28-to-v0.5.29/` (rows R1–R4). **Breaking: none for normal use.** Two behaviour changes a
+script can notice: the failure text for a workspace backfill cannot change (R1), and `--extra-perm` refusing a
+high-risk permission (R2).
+### Fixed
+- **`backfill` planned and attempted team changes the auth service never allows (R1).** It signed in to your end-users
+  org, listed each workspace's teams (allowed — the end-users org is the parent) and then changed the team with the same
+  sign-in. The auth service changes a team only for a sign-in to the team's own org and answered `404 Team not found`,
+  on every workspace; the `--dry-run` before it had promised `sync workspace … (+N …)`. That isolation is by design (a
+  user's workspace is theirs), so authsetup does not work around it. Instead `backfill` now checks, read-only (dry run
+  included), which sign-in can change each workspace's team: the end-users-org sign-in where the auth service accepts
+  it, else a sign-in to the workspace where your service admin is a member holding `teams.write` (it switches in, then
+  changes the team). Any other workspace is never planned or attempted and is named: `NOT changed: workspace <id> team
+  <id> (+N: …) — your service admin <email> is not a member of this workspace, and the auth service changes a team only
+  for a sign-in to the team's own org … A re-run of backfill will not change it: the workspace's owner (or a member
+  holding teams.write there) has to apply it, signed in to that workspace`. The run then exits 1 with `N workspace(s)
+  still lack these permissions and your service admin cannot change them … a re-run will not change them`; the dry run
+  says `the real run will exit non-zero for them`. The summary line gains `not-changeable=N` (at the end).
+### Changed
+- **`--extra-perm` refuses a `platform`, `risk_level: high`/`critical` or privileged permission (R2),** before any
+  server call: `refusing --extra-perm: "<id>" is a high-risk permission (risk_level: high). backfill writes the
+  workspace's DEFAULT team — every member, including people invited later …`. It is the rule `validate` applies to
+  `default_grant`, default roles and `default_team_permissions`. Grant such a permission to the one person who needs it.
+- **The set backfill rolls out is what a NEW workspace gets (R3):** `default_grant` plus
+  `end_users.org_structure.config.default_team_permissions` (0.5.28: `default_grant` only, so a later
+  `default_team_permissions` addition never reached existing workspaces). A risky id found there is left out, with a
+  warning. Still additive: nothing is ever removed.
+- **`run 07` with a privileged tier (R4):** when the provider admin could not enter the customer sub-org, 0.5.28 carried
+  on with the provider-org sign-in and the tier team update / member add failed with `404 Team not found`. It now stops
+  before any tier change: `privileged tier membership: the provider admin could not enter customer sub-org <id>
+  (switch-organization: …) … nothing was changed in the tier; re-run once the provider admin can enter it`. A consumer
+  without a privileged tier is unchanged (the invite works from the provider org).
+- `backfill --help`, `docs/USAGE.md` and Ally (embedded, 0.5.29: SOPs 09 and 13, the `authsetup-cli` and
+  `mesh-tenancy-authority` skills) no longer say an end-users-org admin can change teams inside the workspaces beneath
+  it.
+
 ## [0.5.28] — 2026-10-17 — service names without "_"; Ally answers four first-setup questions
 Migration kit: `migrations/v0.5.27-to-v0.5.28/` (rows R1–R3). **Breaking: none.**
 ### Fixed
